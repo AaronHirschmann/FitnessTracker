@@ -16,6 +16,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private EditText etEmail, etPassword;
     private Button btnLogin;
+    private TextView tvRegister;
     private FirebaseAuth mAuth;
 
     @Override
@@ -29,6 +30,7 @@ public class LoginActivity extends AppCompatActivity {
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
+        tvRegister = findViewById(R.id.tvRegister);
 
         btnLogin.setOnClickListener(view -> {
                 String email = etEmail.getText().toString().trim();
@@ -57,6 +59,10 @@ public class LoginActivity extends AppCompatActivity {
                                 Toast.LENGTH_LONG).show();
                     }
                 });
+        });
+
+        tvRegister.setOnClickListener(view -> {
+            startActivity(new Intent(this, RegisterActivity.class));
         });
     }
 }
