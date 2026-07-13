@@ -52,11 +52,16 @@ public class HomeFragment extends Fragment {
     private void loadUserData() {
         String userID = mAuth.getCurrentUser().getUid();
 
+
         db.collection("users").document(userID).get().addOnSuccessListener(document -> {
-            if (document.exists()) {
-                Double currentWeight = document.getDouble("currentWeight");
+        // collection "users" ist der Ordner in Firebase
+        // document().get() öffnet das dokument mit der UserID
+        // addOnSuccessListener heißt, die Funktion wird erst aufgerufen, wenn Firebase fertig geladen ist
+            if (document.exists()) { // prüft ob daten vorhanden sind
+                Double currentWeight = document.getDouble("currentWeight"); // Werte werden ausgelesen
                 Double lastWeight = document.getDouble("lastWeight");
 
+                //Werte aktualisieren
                 if (currentWeight != null) {
                     tvCurrentWeight.setText(currentWeight + " kg");
                 }
@@ -65,19 +70,23 @@ public class HomeFragment extends Fragment {
                 }
             }
 
-        })
+        }) //Sicherheit, falls ein Fehler entsteht
         .addOnFailureListener(e -> {
             Toast.makeText(getContext(), "Fehler beim Laden", Toast.LENGTH_SHORT).show();
         });
     }
 
-    private void showUpdateWeightDialog() {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_update_weight, null);
-        EditText etWeight = dialogView.findViewById(R.id.etWeight);
 
+    // Dialog-Fenster für das Aktualisieren von Gewicht
+    private void showUpdateWeightDialog() {
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_update_weight, null);  // lädt die xml
+        EditText etWeight = dialogView.findViewById(R.id.etWeight);  // Das Eingabefeld aus der xml
+
+        // Erstellt den Dialog-Builder baut unser xml in das dialog feld ein
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
         builder.setView(dialogView);
 
+        //bestätigungsbutton mit Umwandlung von String in Double
         builder.setPositiveButton("Speichern", (dialog, which) -> {
             String weightStr = etWeight.getText().toString().trim();
             if (!weightStr.isEmpty()) {
@@ -87,11 +96,13 @@ public class HomeFragment extends Fragment {
             }
         });
 
+        //back button
         builder.setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss());
 
         builder.show();
     }
 
+    //Speichern der Gewichtsdaten
     private void saveWeight(double newWeight) {
         String userID = mAuth.getCurrentUser().getUid();
 
@@ -99,8 +110,11 @@ public class HomeFragment extends Fragment {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
 
+                    //Erstellung der Value Paare - (String = "currentWeight", Object = "newWeight" oder 63,5)
+                    //Somit werden Daten dann zu Firebase geschickt
                     Map<String, Object> data = new HashMap<>();
 
+                    //Altes Gewicht wird zu lastWeight, Neues Gewicht wird zu currentWeight
                     if (documentSnapshot.exists() && documentSnapshot.getDouble("currentWeight") != null) {
                         data.put("lastWeight", documentSnapshot.getDouble("currentWeight"));
                     }
@@ -108,7 +122,7 @@ public class HomeFragment extends Fragment {
                     data.put("currentWeight", newWeight);
 
                     db.collection("users").document(userID)
-                            .set(data, com.google.firebase.firestore.SetOptions.merge())
+                            .set(data, com.google.firebase.firestore.SetOptions.merge()) //SetOptions.merge(): nur neue Daten werden überschrieben, nichts anderes gelöscht
                             .addOnSuccessListener(aVoid -> {
                                 tvCurrentWeight.setText(newWeight + " kg");
                                 Toast.makeText(getContext(), "Gewicht gespeichert!", Toast.LENGTH_SHORT).show();
