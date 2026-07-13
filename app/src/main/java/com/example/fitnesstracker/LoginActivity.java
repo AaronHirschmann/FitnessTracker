@@ -16,8 +16,10 @@ public class LoginActivity extends AppCompatActivity {
 
     private EditText etEmail, etPassword;
     private Button btnLogin;
-    private TextView tvRegister;
+    private TextView tvRegister,tvForgotPassword;
     private FirebaseAuth mAuth;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +33,7 @@ public class LoginActivity extends AppCompatActivity {
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
         tvRegister = findViewById(R.id.tvRegister);
+        tvForgotPassword = findViewById(R.id.tvForgotPassword);
 
         btnLogin.setOnClickListener(view -> {
                 String email = etEmail.getText().toString().trim();
@@ -63,6 +66,10 @@ public class LoginActivity extends AppCompatActivity {
 
         tvRegister.setOnClickListener(view -> {
             startActivity(new Intent(this, RegisterActivity.class));
+        });
+
+        tvForgotPassword.setOnClickListener(view -> {
+            startActivity(new Intent(this, ResetPasswordActivity.class));
         });
     }
 }
