@@ -28,6 +28,10 @@ public class MainActivity extends AppCompatActivity {
             //} else if (id == R.id.nav_exercises) {
             } else if (id == R.id.nav_profile) {
                 loadFragment(new ProfileFragment());
+            } else if (id == R.id.nav_exercises) {
+                loadFragment(new ExerciseFragment());
+            } else if (id == R.id.nav_workouts) {
+                loadFragment(new WorkoutFragment());
             }
             return true;
         });
