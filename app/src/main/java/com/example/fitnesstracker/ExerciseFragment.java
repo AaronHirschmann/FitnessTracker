@@ -68,7 +68,10 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
         Button btnCancel = dialog.findViewById(R.id.btn_cancel_exercise);
 
         btnSave.setOnClickListener(v -> {
-            String name = inputName.getText().toString().trim();
+            String name = "";
+            if (inputName.getText() != null) {
+                name = inputName.getText().toString().trim();
+            }
             if (name.isEmpty()) {
                 return;
             }
@@ -88,9 +91,62 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
         dialog.show();
     }
 
+    // NEU: die fehlende Methode
+    private void showEditExerciseDialog(Exercise exercise) {
+        Dialog dialog = new Dialog(requireContext());
+        dialog.setContentView(R.layout.dialog_exercise);
+
+        TextInputEditText inputName = dialog.findViewById(R.id.edittext_exercise_name);
+        CheckBox checkWeight = dialog.findViewById(R.id.checkbox_metric_weight);
+        CheckBox checkReps = dialog.findViewById(R.id.checkbox_metric_reps);
+        CheckBox checkSets = dialog.findViewById(R.id.checkbox_metric_sets);
+        CheckBox checkTime = dialog.findViewById(R.id.checkbox_metric_time);
+        CheckBox checkDistance = dialog.findViewById(R.id.checkbox_metric_distance);
+        Button btnSave = dialog.findViewById(R.id.btn_save_exercise);
+        Button btnCancel = dialog.findViewById(R.id.btn_cancel_exercise);
+
+        inputName.setText(exercise.getName());
+        checkWeight.setChecked(exercise.getMetrics().contains("Gewicht"));
+        checkReps.setChecked(exercise.getMetrics().contains("Wiederholungen"));
+        checkSets.setChecked(exercise.getMetrics().contains("Sätze"));
+        checkTime.setChecked(exercise.getMetrics().contains("Zeit"));
+        checkDistance.setChecked(exercise.getMetrics().contains("Distanz"));
+
+        btnSave.setText("Aktualisieren");
+
+        btnSave.setOnClickListener(v -> {
+            String name = "";
+            if (inputName.getText() != null) {
+                name = inputName.getText().toString().trim();
+            }
+            if (name.isEmpty()) {
+                return;
+            }
+
+            List<String> metrics = new ArrayList<>();
+            if (checkWeight.isChecked()) metrics.add("Gewicht");
+            if (checkReps.isChecked()) metrics.add("Wiederholungen");
+            if (checkSets.isChecked()) metrics.add("Sätze");
+            if (checkTime.isChecked()) metrics.add("Zeit");
+            if (checkDistance.isChecked()) metrics.add("Distanz");
+
+            exercise.setName(name);
+            exercise.setMetrics(metrics);
+
+            int index = exerciseList.indexOf(exercise);
+            if (index != -1) {
+                adapter.notifyItemChanged(index);
+            }
+
+            dialog.dismiss();
+        });
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
+    }
+
     @Override
     public void onEditClicked(Exercise exercise) {
-        // TODO: Bearbeiten-Dialog öffnen
+        showEditExerciseDialog(exercise);   // ← ruft jetzt tatsächlich was auf
     }
 
     @Override

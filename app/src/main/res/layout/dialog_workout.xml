@@ -19,18 +19,25 @@
 
     </com.google.android.material.textfield.TextInputLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Übungen auswählen"
-        android:textStyle="bold"/>
-
     <LinearLayout
-        android:id="@+id/container_exercise_checkboxes"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="8dp"/>
+        android:layout_marginTop="16dp"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btn_save_workout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Weiter"/>
+
+        <Button
+            android:id="@+id/btn_cancel_workout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Abbrechen"/>
+
+    </LinearLayout>
 
 </LinearLayout>

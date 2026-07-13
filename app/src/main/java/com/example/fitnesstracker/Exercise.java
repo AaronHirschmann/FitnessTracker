@@ -1,6 +1,5 @@
 package com.example.fitnesstracker;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class Exercise {
@@ -9,19 +8,19 @@ public class Exercise {
 
     public Exercise(String name, List<String> metrics) {
         this.name = name;
-        this.metrics = metrics != null ? metrics : new ArrayList<>();
+        this.metrics = metrics;
     }
 
     public String getName() {
         return name;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public List<String> getMetrics() {
         return metrics;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public void setMetrics(List<String> metrics) {
