@@ -2,18 +2,19 @@ package com.example.fitnesstracker;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -24,10 +25,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExerciseActionListener {
+import android.widget.ImageButton;
+import android.graphics.Color;
 
-    private ExerciseAdapter adapter;
+public class ExerciseFragment extends Fragment {
+
     private final List<Exercise> exerciseList = new ArrayList<>();
+    private LinearLayout exerciseContainer;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
@@ -40,17 +44,11 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Firebase initialisieren
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
-        RecyclerView recyclerView = view.findViewById(R.id.recyclerViewExercises);
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        exerciseContainer = view.findViewById(R.id.container_exercises);
 
-        adapter = new ExerciseAdapter(exerciseList, this);
-        recyclerView.setAdapter(adapter);
-
-        // Übungen aus Firebase laden statt Testdaten
         loadExercises();
 
         View fabAddExercise = view.findViewById(R.id.fab_add_exercise);
@@ -71,11 +69,61 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
                         List<String> metrics = (List<String>) doc.get("metrics");
                         exerciseList.add(new Exercise(id, name, metrics));
                     }
-                    adapter.notifyDataSetChanged();
+                    renderExercises();
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "Fehler beim Laden", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void renderExercises() {
+        exerciseContainer.removeAllViews();
+
+        if (exerciseList.isEmpty()) {
+            TextView empty = new TextView(requireContext());
+            empty.setText("Noch keine Übungen angelegt.");
+            exerciseContainer.addView(empty);
+            return;
+        }
+
+        for (Exercise exercise : exerciseList) {
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(8, 24, 8, 24);
+
+            TextView text = new TextView(requireContext());
+            text.setText(exercise.getName());
+            text.setTextSize(16);
+            text.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+            ImageButton btnEdit = new ImageButton(requireContext());
+            btnEdit.setImageResource(android.R.drawable.ic_menu_edit);
+            btnEdit.setBackgroundColor(Color.TRANSPARENT);
+            btnEdit.setContentDescription("Übung bearbeiten");
+            btnEdit.setOnClickListener(v -> showEditExerciseDialog(exercise));
+
+            ImageButton btnDelete = new ImageButton(requireContext());
+            btnDelete.setImageResource(android.R.drawable.ic_menu_delete);
+            btnDelete.setBackgroundColor(Color.TRANSPARENT);
+            btnDelete.setContentDescription("Übung löschen");
+            LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            deleteParams.leftMargin = 8;
+            btnDelete.setLayoutParams(deleteParams);
+            btnDelete.setOnClickListener(v -> deleteExercise(exercise));
+
+            row.addView(text);
+            row.addView(btnEdit);
+            row.addView(btnDelete);
+            exerciseContainer.addView(row);
+
+            // Dünne Trennlinie zwischen den Zeilen
+            View divider = new View(requireContext());
+            divider.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2));
+            divider.setBackgroundColor(Color.LTGRAY);
+            exerciseContainer.addView(divider);
+        }
     }
 
     private void saveExercise(String name, List<String> metrics) {
@@ -215,14 +263,4 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
 
         builder.show();
     }
-
-    @Override
-    public void onEditClicked(Exercise exercise) {
-        showEditExerciseDialog(exercise);   // ← ruft jetzt tatsächlich was auf
-    }
-
-    @Override
-    public void onDeleteClicked(Exercise exercise) {
-        deleteExercise(exercise);
-        }
 }
