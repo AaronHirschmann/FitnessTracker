@@ -230,6 +230,22 @@ public class SessionActivity extends AppCompatActivity {
         return sets;
     }
 
+    // GEÄNDERT: liefert nur noch die kurze Einheit (statt vorher den kompletten Label-Text mit Klammer)
+    private String getMetricUnit(String metric) {
+        switch (metric) {
+            case "Gewicht":
+                return "kg";
+            case "Zeit":
+                return "min";
+            case "Distanz":
+                return "km";
+            case "Wiederholungen":
+                return "Wdh.";
+            default:
+                return "";
+        }
+    }
+
     // Baut die komplette Eingabemaske für alle Übungen auf
     private void renderExercises() {
         tvTitle.setText(workoutName != null ? "Session: " + workoutName : "Session");
@@ -262,9 +278,6 @@ public class SessionActivity extends AppCompatActivity {
                 continue;
             }
 
-            // GEÄNDERT: "Sätze" ist rein optional. hasSets bestimmt nur, ob mehrere Zeilen
-            // (eine pro Satz) gezeigt werden. Alle anderen Metriken (Zeit, Distanz, ...) werden
-            // in jedem Fall angezeigt - unabhängig davon, ob "Sätze" dabei ist oder nicht.
             boolean hasSets = metrics.contains(SETS_METRIC);
             List<String> rowMetrics = new ArrayList<>(metrics);
             rowMetrics.remove(SETS_METRIC);
@@ -277,8 +290,6 @@ public class SessionActivity extends AppCompatActivity {
 
             final int exerciseIndex = i;
 
-            // GEÄNDERT: der alte Sonderfall-Block, der hier fälschlich "continue" auslösen konnte,
-            // wurde entfernt. Es gibt immer mindestens eine Zeile - egal welche Metriken vorhanden sind.
             renderSetsForExercise(exerciseIndex, setsContainer, rowMetrics, hasSets);
 
             if (hasSets) {
@@ -327,7 +338,12 @@ public class SessionActivity extends AppCompatActivity {
 
             for (String metric : rowMetrics) {
                 EditText input = new EditText(this);
-                input.setHint(metric);
+                // GEÄNDERT: Hint zeigt wieder nur den reinen Metriknamen (ohne Einheit in Klammern)
+                if (metric.equals("Wiederholungen")) {
+                    input.setHint("Anzahl");
+                } else {
+                    input.setHint(metric);
+                }
                 input.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
                 Object existingValue = setValues.get(metric);
@@ -337,6 +353,15 @@ public class SessionActivity extends AppCompatActivity {
 
                 fieldsForSet.put(metric, input);
                 row.addView(input);
+
+                // NEU: Einheit als kleiner Text direkt rechts neben dem Eingabefeld
+                String unit = getMetricUnit(metric);
+                if (!unit.isEmpty()) {
+                    TextView unitLabel = new TextView(this);
+                    unitLabel.setText(unit);
+                    unitLabel.setPadding(8, 0, 16, 0);
+                    row.addView(unitLabel);
+                }
             }
 
             if (hasSets) {
