@@ -29,7 +29,7 @@ public class SessionActivity extends AppCompatActivity {
 
     private LinearLayout container;
     private TextView tvTitle;
-    private Button btnSave, btnFinish;
+    private Button btnSave;
 
     // Session-Struktur: Liste von Übungen, jede mit "name", "metrics" (Liste) und "sets" (Liste von Wertesätzen)
     private List<Map<String, Object>> sessionExercises = new ArrayList<>();
@@ -52,10 +52,8 @@ public class SessionActivity extends AppCompatActivity {
         tvTitle = findViewById(R.id.tv_session_title);
         container = findViewById(R.id.container_session_exercises);
         btnSave = findViewById(R.id.btn_save_session);
-        btnFinish = findViewById(R.id.btn_finish_session);
 
-        btnSave.setOnClickListener(v -> saveSession(false));
-        btnFinish.setOnClickListener(v -> saveSession(true));
+        btnSave.setOnClickListener(v -> saveSession());
 
         loadOrCreateSession();
     }
@@ -366,18 +364,13 @@ public class SessionActivity extends AppCompatActivity {
         }
     }
 
-    private void saveSession(boolean finishAfterSave) {
+    private void saveSession() {
         for (int i = 0; i < sessionExercises.size(); i++) {
             if (i < inputRefs.size()) {
                 syncExerciseInputsToData(i);
             }
         }
-
         saveSessionToFirestore();
-
-        if (finishAfterSave) {
-            finish();
-        }
     }
 
     private void saveSessionToFirestore() {

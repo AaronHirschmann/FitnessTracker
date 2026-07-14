@@ -27,11 +27,12 @@ import java.util.Map;
 
 public class HomeFragment extends Fragment {
 
-    private TextView tvCurrentWeight, tvLastWeight, tvTodayWorkout;
-    private Button btnUpdateWeight, btnShowPlannedWorkout, btnAddWorkout, btnStartSession; // NEU: btnStartSession
+    private TextView tvCurrentWeight, tvLastWeight, tvTodayWorkout, tvTodayExercises;
+    private Button btnUpdateWeight, btnAddWorkout, btnStartSession;
 
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -43,10 +44,10 @@ public class HomeFragment extends Fragment {
         tvCurrentWeight = view.findViewById(R.id.tvCurrentWeight);
         tvLastWeight = view.findViewById(R.id.tvLastWeight);
         tvTodayWorkout = view.findViewById(R.id.tvTodayWorkout);
+        tvTodayExercises = view.findViewById(R.id.tvTodayExercises);
         btnUpdateWeight = view.findViewById(R.id.btnUpdateWeight);
-        btnShowPlannedWorkout = view.findViewById(R.id.btnShowPlannedWorkout);
         btnAddWorkout = view.findViewById(R.id.btnAddWorkout);
-        btnStartSession = view.findViewById(R.id.btnStartSession); // NEU
+        btnStartSession = view.findViewById(R.id.btnStartSession);
 
         btnUpdateWeight.setOnClickListener(v -> showUpdateWeightDialog());
         btnAddWorkout.setOnClickListener(v -> showSelectWorkoutDialog());
@@ -144,15 +145,52 @@ public class HomeFragment extends Fragment {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         String workoutName = documentSnapshot.getString("workoutName");
+                        String workoutId = documentSnapshot.getString("workoutId");
                         if (workoutName != null) {
                             tvTodayWorkout.setText("Heutiges Workout: " + workoutName);
                         }
+                        if (workoutId != null) {
+                            loadWorkoutExercises(userID, workoutId);
+                        }
                     } else {
                         tvTodayWorkout.setText("Kein Workout für heute geplant");
+                        tvTodayExercises.setText("");
                     }
                 })
                 .addOnFailureListener(e -> {
                     tvTodayWorkout.setText("Fehler beim Laden");
+                });
+    }
+
+    private void loadWorkoutExercises(String userID, String workoutId) {
+        db.collection("users").document(userID)
+                .collection("workouts").document(workoutId)
+                .get()
+                .addOnSuccessListener(workoutDoc -> {
+                    if (workoutDoc.exists()) {
+                        Object rawNames = workoutDoc.get("exerciseNames");
+                        List<String> exerciseNames = new ArrayList<>();
+                        if (rawNames instanceof List) {
+                            for (Object o : (List<?>) rawNames) {
+                                if (o instanceof String) {
+                                    exerciseNames.add((String) o);
+                                }
+                            }
+                        }
+
+                        if (exerciseNames.isEmpty()) {
+                            tvTodayExercises.setText("Keine Übungen in diesem Workout");
+                        } else {
+                            StringBuilder sb = new StringBuilder();
+                            for (String name : exerciseNames) {
+                                sb.append("• ").append(name).append("\n");
+                            }
+                            tvTodayExercises.setText(sb.toString().trim());
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    tvTodayExercises.setText("Fehler beim Laden der Übungen");
                 });
     }
 

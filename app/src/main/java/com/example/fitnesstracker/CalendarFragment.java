@@ -26,11 +26,12 @@ import java.util.Map;
 public class CalendarFragment extends Fragment {
 
     private CalendarView calendarView;
-    private TextView tvSelectedDate, tvWorkoutOnDate;
+    private TextView tvSelectedDate, tvWorkoutOnDate, tvExercisesOnDate;
     private Button btnAddWorkoutToDate;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private String selectedDate;
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -42,7 +43,9 @@ public class CalendarFragment extends Fragment {
         calendarView = view.findViewById(R.id.calendarView);
         tvSelectedDate = view.findViewById(R.id.tvSelectedDate);
         tvWorkoutOnDate = view.findViewById(R.id.tvWorkoutOnDate);
+        tvExercisesOnDate = view.findViewById(R.id.tvExercisesOnDate);
         btnAddWorkoutToDate = view.findViewById(R.id.btnAddWorkoutToDate);
+
 
         calendarView.setOnDateChangeListener((view1, year, month, dayOfMonth) -> {
             selectedDate = year + "-" + (month + 1) + "-" + dayOfMonth;
@@ -52,9 +55,21 @@ public class CalendarFragment extends Fragment {
 
         btnAddWorkoutToDate.setOnClickListener(v -> showAddWorkoutDialog());
 
+        String today = getTodayDateString();
+        tvSelectedDate.setText("Ausgewähltes Datum " + today);
+        selectedDate = today;
+        loadWorkoutForDate(today);
+
         return view;
     }
 
+    private String getTodayDateString() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        int year = calendar.get(java.util.Calendar.YEAR);
+        int month = calendar.get(java.util.Calendar.MONTH) + 1;
+        int day = calendar.get(java.util.Calendar.DAY_OF_MONTH);
+        return year + "-" + month + "-" + day;
+    }
     private void loadWorkoutForDate(String date) {
         String userID = mAuth.getCurrentUser().getUid();
 
@@ -64,15 +79,52 @@ public class CalendarFragment extends Fragment {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         String workoutName = documentSnapshot.getString("workoutName");
+                        String workoutId = documentSnapshot.getString("workoutId");
                         if (workoutName != null) {
                             tvWorkoutOnDate.setText("Workout: " + workoutName);
                         }
+                        if (workoutId != null) {
+                            loadExercisesForWorkout(userID, workoutId);
+                        }
                     } else {
                         tvWorkoutOnDate.setText("Kein Workout geplant");
+                        tvExercisesOnDate.setText("");
                     }
                 })
                 .addOnFailureListener(e -> {
                     tvWorkoutOnDate.setText("Fehler beim Laden");
+                });
+    }
+
+    private void loadExercisesForWorkout(String userID, String workoutId) {
+        db.collection("users").document(userID)
+                .collection("workouts").document(workoutId)
+                .get()
+                .addOnSuccessListener(workoutDoc -> {
+                    if (workoutDoc.exists()) {
+                        Object rawNames = workoutDoc.get("exerciseNames");
+                        List<String> exerciseNames = new ArrayList<>();
+                        if (rawNames instanceof List) {
+                            for (Object o : (List<?>) rawNames) {
+                                if (o instanceof String) {
+                                    exerciseNames.add((String) o);
+                                }
+                            }
+                        }
+
+                        if (exerciseNames.isEmpty()) {
+                            tvExercisesOnDate.setText("Keine Übungen in diesem Workout");
+                        } else {
+                            StringBuilder sb = new StringBuilder();
+                            for (String name : exerciseNames) {
+                                sb.append("• ").append(name).append("\n");
+                            }
+                            tvExercisesOnDate.setText(sb.toString().trim());
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    tvExercisesOnDate.setText("Fehler beim Laden der Übungen");
                 });
     }
 
