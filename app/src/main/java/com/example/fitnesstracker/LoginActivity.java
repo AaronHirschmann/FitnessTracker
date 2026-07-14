@@ -50,8 +50,6 @@ public class LoginActivity extends AppCompatActivity {
                     return;
                 }
 
-                // Firebase Login
-
                 mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         startActivity(new Intent(this, MainActivity.class));

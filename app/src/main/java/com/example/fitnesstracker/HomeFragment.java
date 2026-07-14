@@ -1,7 +1,7 @@
 package com.example.fitnesstracker;
 
 import android.app.AlertDialog;
-import android.content.Intent; // NEU: zum Starten der SessionActivity
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -260,7 +260,6 @@ public class HomeFragment extends Fragment {
                         Toast.makeText(getContext(), "Fehler beim Speichern", Toast.LENGTH_SHORT).show());
     }
 
-    // NEU: prüft, ob für heute ein Workout geplant ist, und startet dann die SessionActivity dafür
     private void startSession() {
         String userID = mAuth.getCurrentUser().getUid();
         String today = getTodayDateString();

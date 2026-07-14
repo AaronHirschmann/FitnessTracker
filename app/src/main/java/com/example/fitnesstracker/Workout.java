@@ -29,9 +29,7 @@ public class Workout {
     public String getID() {
         return id;
     }
-    public void setID(String id) {
-        this.id = id;
-    }
+
     public String getName() {
         return name;
     }
@@ -40,8 +38,5 @@ public class Workout {
     }
     public List<String> getExerciseNames() {
         return exerciseNames;
-    }
-    public void setExerciseNames(List<String> exerciseNames) {
-        this.exerciseNames = exerciseNames;
     }
 }

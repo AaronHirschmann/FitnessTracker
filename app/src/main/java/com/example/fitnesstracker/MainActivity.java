@@ -24,8 +24,6 @@ public class MainActivity extends AppCompatActivity {
                 loadFragment(new HomeFragment());
             } else if (id == R.id.nav_calendar) {
                 loadFragment(new CalendarFragment());
-            // Einfügen von Übungen und Workouts
-            //} else if (id == R.id.nav_exercises) {
             } else if (id == R.id.nav_profile) {
                 loadFragment(new ProfileFragment());
             } else if (id == R.id.nav_exercises) {
