@@ -1,6 +1,7 @@
 package com.example.fitnesstracker;
 
 import android.app.AlertDialog;
+import android.content.Intent; // NEU: zum Starten der SessionActivity
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -27,7 +28,8 @@ import java.util.Map;
 public class HomeFragment extends Fragment {
 
     private TextView tvCurrentWeight, tvLastWeight, tvTodayWorkout;
-    private Button btnUpdateWeight, btnShowPlannedWorkout, btnAddWorkout;
+    private Button btnUpdateWeight, btnShowPlannedWorkout, btnAddWorkout, btnStartSession; // NEU: btnStartSession
+
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
@@ -44,9 +46,11 @@ public class HomeFragment extends Fragment {
         btnUpdateWeight = view.findViewById(R.id.btnUpdateWeight);
         btnShowPlannedWorkout = view.findViewById(R.id.btnShowPlannedWorkout);
         btnAddWorkout = view.findViewById(R.id.btnAddWorkout);
+        btnStartSession = view.findViewById(R.id.btnStartSession); // NEU
 
         btnUpdateWeight.setOnClickListener(v -> showUpdateWeightDialog());
         btnAddWorkout.setOnClickListener(v -> showSelectWorkoutDialog());
+        btnStartSession.setOnClickListener(v -> startSession()); // NEU
 
         loadUserData();
         loadTodayWorkout();
@@ -122,7 +126,6 @@ public class HomeFragment extends Fragment {
                 });
     }
 
-    //liefert das heutige Datum im gleichen Format wie im CalendarFragment (Jahr-Monat-Tag)
     private String getTodayDateString() {
         Calendar calendar = Calendar.getInstance();
         int year = calendar.get(Calendar.YEAR);
@@ -131,7 +134,6 @@ public class HomeFragment extends Fragment {
         return year + "-" + month + "-" + day;
     }
 
-    //lädt das für heute geplante Workout (falls vorhanden) und zeigt es an
     private void loadTodayWorkout() {
         String userID = mAuth.getCurrentUser().getUid();
         String today = getTodayDateString();
@@ -154,7 +156,6 @@ public class HomeFragment extends Fragment {
                 });
     }
 
-    // Dialog zum Auswählen eines bereits im Workouts-Tab erstellten Workouts für heute
     private void showSelectWorkoutDialog() {
         String userID = mAuth.getCurrentUser().getUid();
 
@@ -202,7 +203,6 @@ public class HomeFragment extends Fragment {
                         Toast.makeText(getContext(), "Fehler beim Laden der Workouts", Toast.LENGTH_SHORT).show());
     }
 
-    //speichert die Auswahl als heutiges Workout in plannedWorkouts
     private void assignWorkoutToToday(Workout workout) {
         String userID = mAuth.getCurrentUser().getUid();
         String today = getTodayDateString();
@@ -220,5 +220,26 @@ public class HomeFragment extends Fragment {
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(getContext(), "Fehler beim Speichern", Toast.LENGTH_SHORT).show());
+    }
+
+    // NEU: prüft, ob für heute ein Workout geplant ist, und startet dann die SessionActivity dafür
+    private void startSession() {
+        String userID = mAuth.getCurrentUser().getUid();
+        String today = getTodayDateString();
+
+        db.collection("users").document(userID)
+                .collection("plannedWorkouts").document(today)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
+                        Toast.makeText(getContext(), "Bitte zuerst ein Workout für heute auswählen", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    Intent intent = new Intent(getActivity(), SessionActivity.class);
+                    intent.putExtra("date", today);
+                    startActivity(intent);
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "Fehler beim Prüfen des Workouts", Toast.LENGTH_SHORT).show());
     }
 }

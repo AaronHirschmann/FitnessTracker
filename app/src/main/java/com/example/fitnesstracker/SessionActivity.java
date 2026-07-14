@@ -1,0 +1,400 @@
+package com.example.fitnesstracker;
+
+import android.os.Bundle;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class SessionActivity extends AppCompatActivity {
+
+    private static final String SETS_METRIC = "Sätze";
+
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+    private String date;
+
+    private LinearLayout container;
+    private TextView tvTitle;
+    private Button btnSave, btnFinish;
+
+    // Session-Struktur: Liste von Übungen, jede mit "name", "metrics" (Liste) und "sets" (Liste von Wertesätzen)
+    private List<Map<String, Object>> sessionExercises = new ArrayList<>();
+    private String workoutId;
+    private String workoutName;
+
+    // Merkt sich pro Übung -> pro Satz -> Metrik -> EditText, um beim Speichern/Umbauen die aktuellen Werte auszulesen
+    private final List<List<Map<String, EditText>>> inputRefs = new ArrayList<>();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_session);
+
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
+
+        date = getIntent().getStringExtra("date");
+
+        tvTitle = findViewById(R.id.tv_session_title);
+        container = findViewById(R.id.container_session_exercises);
+        btnSave = findViewById(R.id.btn_save_session);
+        btnFinish = findViewById(R.id.btn_finish_session);
+
+        btnSave.setOnClickListener(v -> saveSession(false));
+        btnFinish.setOnClickListener(v -> saveSession(true));
+
+        loadOrCreateSession();
+    }
+
+    private void loadOrCreateSession() {
+        String userID = mAuth.getCurrentUser().getUid();
+
+        db.collection("users").document(userID)
+                .collection("plannedWorkouts").document(date)
+                .get()
+                .addOnSuccessListener(plannedDoc -> {
+                    if (!plannedDoc.exists()) {
+                        Toast.makeText(this, "Kein Workout für dieses Datum geplant", Toast.LENGTH_LONG).show();
+                        finish();
+                        return;
+                    }
+
+                    String plannedWorkoutId = plannedDoc.getString("workoutId");
+                    String plannedWorkoutName = plannedDoc.getString("workoutName");
+
+                    if (plannedWorkoutId == null) {
+                        Toast.makeText(this, "Geplantes Workout hat keine gültige ID", Toast.LENGTH_LONG).show();
+                        finish();
+                        return;
+                    }
+
+                    db.collection("users").document(userID)
+                            .collection("sessions").document(date)
+                            .get()
+                            .addOnSuccessListener(sessionDoc -> {
+                                Object rawExercises = sessionDoc.exists() ? sessionDoc.get("exercises") : null;
+                                boolean hasExercises = rawExercises instanceof List && !((List<?>) rawExercises).isEmpty();
+                                String sessionWorkoutId = sessionDoc.exists() ? sessionDoc.getString("workoutId") : null;
+                                boolean sameWorkout = plannedWorkoutId.equals(sessionWorkoutId);
+
+                                if (sessionDoc.exists() && hasExercises && sameWorkout) {
+                                    workoutId = sessionWorkoutId;
+                                    workoutName = sessionDoc.getString("workoutName");
+                                    sessionExercises = (List<Map<String, Object>>) rawExercises;
+                                    normalizeExercisesData();
+                                    renderExercises();
+                                } else {
+                                    workoutId = plannedWorkoutId;
+                                    workoutName = plannedWorkoutName;
+                                    loadWorkoutDetails(userID);
+                                }
+                            })
+                            .addOnFailureListener(e ->
+                                    Toast.makeText(this, "Fehler beim Laden der Session: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Fehler beim Laden des geplanten Workouts: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    private void loadWorkoutDetails(String userID) {
+        db.collection("users").document(userID)
+                .collection("workouts").document(workoutId)
+                .get()
+                .addOnSuccessListener(workoutDoc -> {
+                    if (!workoutDoc.exists()) {
+                        Toast.makeText(this, "Workout wurde nicht gefunden (evtl. gelöscht)", Toast.LENGTH_LONG).show();
+                        finish();
+                        return;
+                    }
+
+                    Object rawNames = workoutDoc.get("exerciseNames");
+                    List<String> exerciseNames = new ArrayList<>();
+                    if (rawNames instanceof List) {
+                        for (Object o : (List<?>) rawNames) {
+                            if (o instanceof String) {
+                                exerciseNames.add((String) o);
+                            }
+                        }
+                    }
+
+                    if (exerciseNames.isEmpty()) {
+                        Toast.makeText(this, "Diesem Workout sind noch keine Übungen zugeordnet (im Workouts-Tab bearbeiten)", Toast.LENGTH_LONG).show();
+                    }
+
+                    loadExerciseCatalogAndBuildSession(userID, exerciseNames);
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Fehler beim Laden des Workouts: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    private void loadExerciseCatalogAndBuildSession(String userID, List<String> exerciseNames) {
+        db.collection("users").document(userID)
+                .collection("exercises")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Map<String, List<String>> metricsByName = new HashMap<>();
+                    for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                        String name = doc.getString("name");
+                        Object rawMetrics = doc.get("metrics");
+                        List<String> metrics = new ArrayList<>();
+                        if (rawMetrics instanceof List) {
+                            for (Object o : (List<?>) rawMetrics) {
+                                if (o instanceof String) {
+                                    metrics.add((String) o);
+                                }
+                            }
+                        }
+                        if (name != null) {
+                            metricsByName.put(name, metrics);
+                        }
+                    }
+
+                    sessionExercises = new ArrayList<>();
+                    for (String exerciseName : exerciseNames) {
+                        List<String> metrics = metricsByName.get(exerciseName);
+                        if (metrics == null) {
+                            metrics = new ArrayList<>();
+                        }
+
+                        Map<String, Object> exerciseEntry = new HashMap<>();
+                        exerciseEntry.put("name", exerciseName);
+                        exerciseEntry.put("metrics", metrics);
+
+                        // Ein leerer Startsatz
+                        List<Map<String, Object>> sets = new ArrayList<>();
+                        sets.add(new HashMap<>());
+                        exerciseEntry.put("sets", sets);
+
+                        sessionExercises.add(exerciseEntry);
+                    }
+
+                    saveSessionToFirestore();
+                    renderExercises();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Fehler beim Laden der Übungen: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    // Stellt sicher, dass jede geladene Übung ein "sets"-Feld hat (Kompatibilität mit alten, vor der Satz-Funktion gespeicherten Sessions)
+    private void normalizeExercisesData() {
+        for (Map<String, Object> exercise : sessionExercises) {
+            Object rawSets = exercise.get("sets");
+            if (!(rawSets instanceof List) || ((List<?>) rawSets).isEmpty()) {
+                List<Map<String, Object>> sets = new ArrayList<>();
+                sets.add(new HashMap<>());
+                exercise.put("sets", sets);
+            }
+        }
+    }
+
+    private List<String> getMetrics(Map<String, Object> exercise) {
+        Object rawMetrics = exercise.get("metrics");
+        List<String> metrics = new ArrayList<>();
+        if (rawMetrics instanceof List) {
+            for (Object o : (List<?>) rawMetrics) {
+                if (o instanceof String) {
+                    metrics.add((String) o);
+                }
+            }
+        }
+        return metrics;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> getSets(Map<String, Object> exercise) {
+        Object rawSets = exercise.get("sets");
+        if (rawSets instanceof List) {
+            return (List<Map<String, Object>>) rawSets;
+        }
+        List<Map<String, Object>> sets = new ArrayList<>();
+        sets.add(new HashMap<>());
+        exercise.put("sets", sets);
+        return sets;
+    }
+
+    // Baut die komplette Eingabemaske für alle Übungen auf
+    private void renderExercises() {
+        tvTitle.setText(workoutName != null ? "Session: " + workoutName : "Session");
+        container.removeAllViews();
+        inputRefs.clear();
+
+        if (sessionExercises.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText("Keine Übungen in dieser Session.");
+            container.addView(empty);
+            return;
+        }
+
+        for (int i = 0; i < sessionExercises.size(); i++) {
+            Map<String, Object> exercise = sessionExercises.get(i);
+            String name = (String) exercise.get("name");
+            List<String> metrics = getMetrics(exercise);
+
+            TextView exerciseTitle = new TextView(this);
+            exerciseTitle.setText(name != null ? name : "Übung");
+            exerciseTitle.setTextSize(18);
+            exerciseTitle.setPadding(0, 24, 0, 8);
+            container.addView(exerciseTitle);
+
+            if (metrics.isEmpty()) {
+                TextView noMetrics = new TextView(this);
+                noMetrics.setText("Keine Metriken für diese Übung festgelegt (im Übungen-Tab bearbeiten)");
+                container.addView(noMetrics);
+                inputRefs.add(new ArrayList<>());
+                continue;
+            }
+
+            boolean hasSets = metrics.contains(SETS_METRIC);
+            List<String> setMetrics = new ArrayList<>(metrics);
+            setMetrics.remove(SETS_METRIC);
+
+            LinearLayout setsContainer = new LinearLayout(this);
+            setsContainer.setOrientation(LinearLayout.VERTICAL);
+            container.addView(setsContainer);
+
+            inputRefs.add(new ArrayList<>());
+
+            if (setMetrics.isEmpty() && !hasSets) {
+                TextView onlySetsMetric = new TextView(this);
+                onlySetsMetric.setText("Nur \"Sätze\" als Metrik hinterlegt – bitte im Übungen-Tab weitere Metriken hinzufügen");
+                setsContainer.addView(onlySetsMetric);
+                continue;
+            }
+
+            final int exerciseIndex = i;
+            renderSetsForExercise(exerciseIndex, setsContainer, setMetrics, hasSets);
+
+            if (hasSets) {
+                Button btnAddSet = new Button(this);
+                btnAddSet.setText("+ Satz hinzufügen");
+                btnAddSet.setOnClickListener(v -> {
+                    syncExerciseInputsToData(exerciseIndex);
+                    getSets(sessionExercises.get(exerciseIndex)).add(new HashMap<>());
+                    renderSetsForExercise(exerciseIndex, setsContainer, setMetrics, true);
+                });
+                container.addView(btnAddSet);
+            }
+        }
+    }
+
+    // Baut nur die Satz-Zeilen EINER Übung neu auf (nicht die ganze Eingabemaske)
+    private void renderSetsForExercise(int exerciseIndex, LinearLayout setsContainer, List<String> setMetrics, boolean hasSets) {
+        setsContainer.removeAllViews();
+        inputRefs.get(exerciseIndex).clear();
+
+        List<Map<String, Object>> sets = getSets(sessionExercises.get(exerciseIndex));
+
+        for (int j = 0; j < sets.size(); j++) {
+            Map<String, Object> setValues = sets.get(j);
+            final int setIndex = j;
+
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, 8, 0, 8);
+
+            if (hasSets) {
+                TextView setLabel = new TextView(this);
+                setLabel.setText("Satz " + (j + 1) + ": ");
+                row.addView(setLabel);
+            }
+
+            Map<String, EditText> fieldsForSet = new HashMap<>();
+
+            for (String metric : setMetrics) {
+                EditText input = new EditText(this);
+                input.setHint(metric);
+                input.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+                Object existingValue = setValues.get(metric);
+                if (existingValue != null) {
+                    input.setText(existingValue.toString());
+                }
+
+                fieldsForSet.put(metric, input);
+                row.addView(input);
+            }
+
+            if (hasSets) {
+                Button btnDeleteSet = new Button(this);
+                btnDeleteSet.setText("X");
+                btnDeleteSet.setOnClickListener(v -> {
+                    syncExerciseInputsToData(exerciseIndex);
+                    List<Map<String, Object>> currentSets = getSets(sessionExercises.get(exerciseIndex));
+                    if (setIndex < currentSets.size()) {
+                        currentSets.remove(setIndex);
+                    }
+                    if (currentSets.isEmpty()) {
+                        currentSets.add(new HashMap<>());
+                    }
+                    renderSetsForExercise(exerciseIndex, setsContainer, setMetrics, true);
+                });
+                row.addView(btnDeleteSet);
+            }
+
+            inputRefs.get(exerciseIndex).add(fieldsForSet);
+            setsContainer.addView(row);
+        }
+    }
+
+    // Liest die aktuell in der UI stehenden Werte einer Übung aus und schreibt sie zurück in sessionExercises
+    private void syncExerciseInputsToData(int exerciseIndex) {
+        List<Map<String, Object>> sets = getSets(sessionExercises.get(exerciseIndex));
+        List<Map<String, EditText>> fieldsPerSet = inputRefs.get(exerciseIndex);
+
+        for (int j = 0; j < fieldsPerSet.size() && j < sets.size(); j++) {
+            Map<String, EditText> fields = fieldsPerSet.get(j);
+            Map<String, Object> setValues = new HashMap<>();
+            for (Map.Entry<String, EditText> entry : fields.entrySet()) {
+                setValues.put(entry.getKey(), entry.getValue().getText().toString().trim());
+            }
+            sets.set(j, setValues);
+        }
+    }
+
+    private void saveSession(boolean finishAfterSave) {
+        for (int i = 0; i < sessionExercises.size(); i++) {
+            if (i < inputRefs.size()) {
+                syncExerciseInputsToData(i);
+            }
+        }
+
+        saveSessionToFirestore();
+
+        if (finishAfterSave) {
+            finish();
+        }
+    }
+
+    private void saveSessionToFirestore() {
+        String userID = mAuth.getCurrentUser().getUid();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("date", date);
+        data.put("workoutId", workoutId);
+        data.put("workoutName", workoutName);
+        data.put("exercises", sessionExercises);
+
+        db.collection("users").document(userID)
+                .collection("sessions").document(date)
+                .set(data)
+                .addOnSuccessListener(aVoid ->
+                        Toast.makeText(this, "Session gespeichert!", Toast.LENGTH_SHORT).show())
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Fehler beim Speichern: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+    }
+}
