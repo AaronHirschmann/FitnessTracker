@@ -21,8 +21,6 @@ import java.util.Map;
 
 public class SessionActivity extends AppCompatActivity {
 
-    // "Sätze" ist eine optionale Metrik wie jede andere. Ist sie dabei, gibt es mehrere Zeilen (eine pro Satz).
-    // Ist sie NICHT dabei (z.B. nur "Zeit"/"Distanz"), gibt es genau eine Zeile mit den vorhandenen Metriken.
     private static final String SETS_METRIC = "Sätze";
 
     private FirebaseFirestore db;
@@ -305,8 +303,6 @@ public class SessionActivity extends AppCompatActivity {
         }
     }
 
-    // Baut nur die Zeilen EINER Übung neu auf. Bei hasSets=false gibt es genau eine Zeile
-    // ohne "Satz X"-Label und ohne Hinzufügen/Löschen-Buttons.
     private void renderSetsForExercise(int exerciseIndex, LinearLayout setsContainer, List<String> rowMetrics, boolean hasSets) {
         setsContainer.removeAllViews();
         inputRefs.get(exerciseIndex).clear();

@@ -31,8 +31,6 @@ public class RegisterActivity extends AppCompatActivity {
         btnRegister.setOnClickListener(view -> registerUser());
     }
 
-    // registerUser() erstellen
-
     private void registerUser() {
         String username = etUsername.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
@@ -51,7 +49,7 @@ public class RegisterActivity extends AppCompatActivity {
             etPassword.setError("Passwort muss mind. 6 Zeichen haben");
             return;
         }
-        if (!password.equals(passwordConfirm)) { // wir nutzen .equals, weil wir einen String prüfen (kein !=)!!
+        if (!password.equals(passwordConfirm)) {
             etPasswordConfirm.setError("Passwörter stimmen nicht überein");
             return;
         }

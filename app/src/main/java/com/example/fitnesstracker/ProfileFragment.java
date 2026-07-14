@@ -57,7 +57,7 @@ public class ProfileFragment extends Fragment {
     private void loadProfileData() {
         String userID = mAuth.getCurrentUser().getUid();
 
-        String email = mAuth.getCurrentUser().getEmail(); // wir können die Mail direkt aus FirebaseAuth ziehen und müssen sie nicht aus Firebase laden
+        String email = mAuth.getCurrentUser().getEmail();
         tvEmail.setText(email);
 
         db.collection("users").document(userID)

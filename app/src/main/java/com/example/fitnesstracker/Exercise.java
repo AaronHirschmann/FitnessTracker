@@ -32,8 +32,4 @@ public class Exercise {
     public void setName(String name) {
         this.name = name;
     }
-
-    public void setMetrics(List<String> metrics) {
-        this.metrics = metrics;
-    }
 }
