@@ -27,7 +27,7 @@ public class CalendarFragment extends Fragment {
 
     private CalendarView calendarView;
     private TextView tvSelectedDate, tvWorkoutOnDate, tvExercisesOnDate;
-    private Button btnAddWorkoutToDate;
+    private Button btnAddWorkoutToDate, btnRemoveWorkoutFromDate;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private String selectedDate;
@@ -45,6 +45,7 @@ public class CalendarFragment extends Fragment {
         tvWorkoutOnDate = view.findViewById(R.id.tvWorkoutOnDate);
         tvExercisesOnDate = view.findViewById(R.id.tvExercisesOnDate);
         btnAddWorkoutToDate = view.findViewById(R.id.btnAddWorkoutToDate);
+        btnRemoveWorkoutFromDate = view.findViewById(R.id.btnRemoveWorkoutFromDate);
 
 
         calendarView.setOnDateChangeListener((view1, year, month, dayOfMonth) -> {
@@ -54,6 +55,7 @@ public class CalendarFragment extends Fragment {
         });
 
         btnAddWorkoutToDate.setOnClickListener(v -> showAddWorkoutDialog());
+        btnRemoveWorkoutFromDate.setOnClickListener(v -> removeWorkoutFromDate());
 
         String today = getTodayDateString();
         tvSelectedDate.setText("Ausgewähltes Datum " + today);
@@ -80,6 +82,7 @@ public class CalendarFragment extends Fragment {
                     if (documentSnapshot.exists()) {
                         String workoutName = documentSnapshot.getString("workoutName");
                         String workoutId = documentSnapshot.getString("workoutId");
+                        btnRemoveWorkoutFromDate.setVisibility(View.VISIBLE);
                         if (workoutName != null) {
                             tvWorkoutOnDate.setText("Workout: " + workoutName);
                         }
@@ -89,6 +92,7 @@ public class CalendarFragment extends Fragment {
                     } else {
                         tvWorkoutOnDate.setText("Kein Workout geplant");
                         tvExercisesOnDate.setText("");
+                        btnRemoveWorkoutFromDate.setVisibility(View.GONE);
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -125,6 +129,28 @@ public class CalendarFragment extends Fragment {
                 })
                 .addOnFailureListener(e -> {
                     tvExercisesOnDate.setText("Fehler beim Laden der Übungen");
+                });
+    }
+
+    private void removeWorkoutFromDate() {
+        if (selectedDate == null) {
+            Toast.makeText(getContext(), "Bitte zuerst ein Datum auswählen", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String userID = mAuth.getCurrentUser().getUid();
+
+        db.collection("users").document(userID)
+                .collection("plannedWorkouts").document(selectedDate)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Workout entfernt!", Toast.LENGTH_SHORT).show();
+                    tvWorkoutOnDate.setText("Kein Workout geplant");
+                    tvExercisesOnDate.setText("");
+                    btnRemoveWorkoutFromDate.setVisibility(View.GONE);
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Fehler beim Entfernen", Toast.LENGTH_SHORT).show();
                 });
     }
 
