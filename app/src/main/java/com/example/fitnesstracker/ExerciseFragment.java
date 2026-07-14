@@ -1,6 +1,6 @@
 package com.example.fitnesstracker;
 
-import android.app.Dialog;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -132,24 +132,26 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
     }
 
     private void showAddExerciseDialog() {
-        Dialog dialog = new Dialog(requireContext());
-        dialog.setContentView(R.layout.dialog_exercise);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_exercise, null);
 
-        TextInputEditText inputName = dialog.findViewById(R.id.edittext_exercise_name);
-        CheckBox checkWeight = dialog.findViewById(R.id.checkbox_metric_weight);
-        CheckBox checkReps = dialog.findViewById(R.id.checkbox_metric_reps);
-        CheckBox checkSets = dialog.findViewById(R.id.checkbox_metric_sets);
-        CheckBox checkTime = dialog.findViewById(R.id.checkbox_metric_time);
-        CheckBox checkDistance = dialog.findViewById(R.id.checkbox_metric_distance);
-        Button btnSave = dialog.findViewById(R.id.btn_save_exercise);
-        Button btnCancel = dialog.findViewById(R.id.btn_cancel_exercise);
+        TextInputEditText inputName = dialogView.findViewById(R.id.edittext_exercise_name);
+        CheckBox checkWeight = dialogView.findViewById(R.id.checkbox_metric_weight);
+        CheckBox checkReps = dialogView.findViewById(R.id.checkbox_metric_reps);
+        CheckBox checkSets = dialogView.findViewById(R.id.checkbox_metric_sets);
+        CheckBox checkTime = dialogView.findViewById(R.id.checkbox_metric_time);
+        CheckBox checkDistance = dialogView.findViewById(R.id.checkbox_metric_distance);
 
-        btnSave.setOnClickListener(v -> {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("Übung hinzufügen");
+        builder.setView(dialogView);
+
+        builder.setPositiveButton("Speichern", (dialog, which) -> {
             String name = "";
             if (inputName.getText() != null) {
                 name = inputName.getText().toString().trim();
             }
             if (name.isEmpty()) {
+                Toast.makeText(getContext(), "Bitte einen Namen eingeben", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -161,25 +163,22 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
             if (checkDistance.isChecked()) metrics.add("Distanz");
 
             saveExercise(name, metrics);
-            dialog.dismiss();
         });
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-        dialog.show();
+
+        builder.setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss());
+
+        builder.show();
     }
 
-    // NEU: die fehlende Methode
     private void showEditExerciseDialog(Exercise exercise) {
-        Dialog dialog = new Dialog(requireContext());
-        dialog.setContentView(R.layout.dialog_exercise);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_exercise, null);
 
-        TextInputEditText inputName = dialog.findViewById(R.id.edittext_exercise_name);
-        CheckBox checkWeight = dialog.findViewById(R.id.checkbox_metric_weight);
-        CheckBox checkReps = dialog.findViewById(R.id.checkbox_metric_reps);
-        CheckBox checkSets = dialog.findViewById(R.id.checkbox_metric_sets);
-        CheckBox checkTime = dialog.findViewById(R.id.checkbox_metric_time);
-        CheckBox checkDistance = dialog.findViewById(R.id.checkbox_metric_distance);
-        Button btnSave = dialog.findViewById(R.id.btn_save_exercise);
-        Button btnCancel = dialog.findViewById(R.id.btn_cancel_exercise);
+        TextInputEditText inputName = dialogView.findViewById(R.id.edittext_exercise_name);
+        CheckBox checkWeight = dialogView.findViewById(R.id.checkbox_metric_weight);
+        CheckBox checkReps = dialogView.findViewById(R.id.checkbox_metric_reps);
+        CheckBox checkSets = dialogView.findViewById(R.id.checkbox_metric_sets);
+        CheckBox checkTime = dialogView.findViewById(R.id.checkbox_metric_time);
+        CheckBox checkDistance = dialogView.findViewById(R.id.checkbox_metric_distance);
 
         inputName.setText(exercise.getName());
         checkWeight.setChecked(exercise.getMetrics().contains("Gewicht"));
@@ -188,14 +187,17 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
         checkTime.setChecked(exercise.getMetrics().contains("Zeit"));
         checkDistance.setChecked(exercise.getMetrics().contains("Distanz"));
 
-        btnSave.setText("Aktualisieren");
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("Übung bearbeiten");
+        builder.setView(dialogView);
 
-        btnSave.setOnClickListener(v -> {
+        builder.setPositiveButton("Aktualisieren", (dialog, which) -> {
             String name = "";
             if (inputName.getText() != null) {
                 name = inputName.getText().toString().trim();
             }
             if (name.isEmpty()) {
+                Toast.makeText(getContext(), "Bitte einen Namen eingeben", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -206,12 +208,12 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
             if (checkTime.isChecked()) metrics.add("Zeit");
             if (checkDistance.isChecked()) metrics.add("Distanz");
 
-          updateExercise(exercise, name, metrics);
-          dialog.dismiss();
-
+            updateExercise(exercise, name, metrics);
         });
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-        dialog.show();
+
+        builder.setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss());
+
+        builder.show();
     }
 
     @Override

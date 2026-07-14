@@ -25,19 +25,32 @@
         android:layout_marginTop="16dp"
         android:orientation="vertical">
 
-        <Button
-            android:id="@+id/btn_save_workout"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Übungen:"
+            android:textStyle="bold"/>
+
+        <LinearLayout
+            android:id="@+id/container_workout_exercises"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Weiter"/>
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"/>
+
+        <Spinner
+            android:id="@+id/spinner_workout_exercise_select"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"/>
 
         <Button
-            android:id="@+id/btn_cancel_workout"
+            android:id="@+id/btn_add_workout_exercise"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Abbrechen"/>
-
+            android:text="Übung hinzufügen"/>
     </LinearLayout>
 
 </LinearLayout>
