@@ -1,16 +1,26 @@
 package com.example.fitnesstracker;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class Exercise {
+    private String id;
     private String name;
     private List<String> metrics;
 
-    public Exercise(String name, List<String> metrics) {
+    public Exercise() {}
+
+    public Exercise(String id, String name, List<String> metrics) {
+        this.id = id;
         this.name = name;
-        this.metrics = metrics;
+        if (metrics != null) {
+            this.metrics = metrics;
+        } else {
+            this.metrics = new ArrayList<>();
+        }
     }
 
+    public String getID() { return id; }
     public String getName() {
         return name;
     }

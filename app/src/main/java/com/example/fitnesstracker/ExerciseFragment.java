@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -14,14 +15,21 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExerciseActionListener {
 
     private ExerciseAdapter adapter;
     private final List<Exercise> exerciseList = new ArrayList<>();
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -32,26 +40,95 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Firebase initialisieren
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
+
         RecyclerView recyclerView = view.findViewById(R.id.recyclerViewExercises);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
         adapter = new ExerciseAdapter(exerciseList, this);
         recyclerView.setAdapter(adapter);
 
-        // Testdaten
-        exerciseList.add(new Exercise("Bankdrücken", new ArrayList<>()));
-        exerciseList.add(new Exercise("Kniebeuge", new ArrayList<>()));
-        exerciseList.add(new Exercise("Kreuzheben", new ArrayList<>()));
-        exerciseList.add(new Exercise("Rudern", new ArrayList<>()));
-        exerciseList.add(new Exercise("Klimmzüge", new ArrayList<>()));
-        exerciseList.add(new Exercise("Liegestütze", new ArrayList<>()));
-        exerciseList.add(new Exercise("Dips", new ArrayList<>()));
-        exerciseList.add(new Exercise("Laufen", new ArrayList<>()));
-        exerciseList.add(new Exercise("Schwimmen", new ArrayList<>()));
-        adapter.notifyDataSetChanged();
+        // Übungen aus Firebase laden statt Testdaten
+        loadExercises();
 
         View fabAddExercise = view.findViewById(R.id.fab_add_exercise);
         fabAddExercise.setOnClickListener(v -> showAddExerciseDialog());
+    }
+
+    private void loadExercises() {
+        String userID = mAuth.getCurrentUser().getUid();
+
+        db.collection("users").document(userID)
+                .collection("exercises")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    exerciseList.clear();
+                    for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                        String id = doc.getId();
+                        String name = doc.getString("name");
+                        List<String> metrics = (List<String>) doc.get("metrics");
+                        exerciseList.add(new Exercise(id, name, metrics));
+                    }
+                    adapter.notifyDataSetChanged();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Fehler beim Laden", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void saveExercise(String name, List<String> metrics) {
+        String userID = mAuth.getCurrentUser().getUid();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("name", name);
+        data.put("metrics", metrics);
+
+        db.collection("users").document(userID)
+                .collection("exercises")
+                .add(data)
+                .addOnSuccessListener(documentReference -> {
+                    Toast.makeText(getContext(), "Übung gespeichert!", Toast.LENGTH_SHORT).show();
+                    loadExercises();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Fehler beim Speichern", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void deleteExercise(Exercise exercise) {
+        String userID = mAuth.getCurrentUser().getUid();
+
+        db.collection("users").document(userID)
+                .collection("exercises").document(exercise.getID())
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Übung gelöscht!", Toast.LENGTH_SHORT).show();
+                    loadExercises();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Fehler beim Löschen", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void updateExercise(Exercise exercise, String newName, List<String> newMetrics) {
+        String userID = mAuth.getCurrentUser().getUid();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("name", newName);
+        data.put("metrics", newMetrics);
+
+        db.collection("users").document(userID)
+                .collection("exercises").document(exercise.getID())
+                .set(data, com.google.firebase.firestore.SetOptions.merge())
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Übung aktualisiert", Toast.LENGTH_SHORT).show();
+                    loadExercises();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Fehler beim Aktualisieren", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void showAddExerciseDialog() {
@@ -83,8 +160,7 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
             if (checkTime.isChecked()) metrics.add("Zeit");
             if (checkDistance.isChecked()) metrics.add("Distanz");
 
-            exerciseList.add(new Exercise(name, metrics));
-            adapter.notifyItemInserted(exerciseList.size() - 1);
+            saveExercise(name, metrics);
             dialog.dismiss();
         });
         btnCancel.setOnClickListener(v -> dialog.dismiss());
@@ -130,15 +206,9 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
             if (checkTime.isChecked()) metrics.add("Zeit");
             if (checkDistance.isChecked()) metrics.add("Distanz");
 
-            exercise.setName(name);
-            exercise.setMetrics(metrics);
+          updateExercise(exercise, name, metrics);
+          dialog.dismiss();
 
-            int index = exerciseList.indexOf(exercise);
-            if (index != -1) {
-                adapter.notifyItemChanged(index);
-            }
-
-            dialog.dismiss();
         });
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
@@ -151,10 +221,6 @@ public class ExerciseFragment extends Fragment implements ExerciseAdapter.OnExer
 
     @Override
     public void onDeleteClicked(Exercise exercise) {
-        int index = exerciseList.indexOf(exercise);
-        if (index != -1) {
-            exerciseList.remove(index);
-            adapter.notifyItemRemoved(index);
+        deleteExercise(exercise);
         }
-    }
 }
