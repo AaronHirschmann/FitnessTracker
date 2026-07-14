@@ -2,22 +2,26 @@ package com.example.fitnesstracker;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class HomeFragment extends Fragment {
@@ -42,9 +46,10 @@ public class HomeFragment extends Fragment {
         btnAddWorkout = view.findViewById(R.id.btnAddWorkout);
 
         btnUpdateWeight.setOnClickListener(v -> showUpdateWeightDialog());
+        btnAddWorkout.setOnClickListener(v -> showSelectWorkoutDialog());
 
         loadUserData();
-
+        loadTodayWorkout();
 
         return view;
     }
@@ -52,16 +57,11 @@ public class HomeFragment extends Fragment {
     private void loadUserData() {
         String userID = mAuth.getCurrentUser().getUid();
 
-
         db.collection("users").document(userID).get().addOnSuccessListener(document -> {
-        // collection "users" ist der Ordner in Firebase
-        // document().get() öffnet das dokument mit der UserID
-        // addOnSuccessListener heißt, die Funktion wird erst aufgerufen, wenn Firebase fertig geladen ist
-            if (document.exists()) { // prüft ob daten vorhanden sind
-                Double currentWeight = document.getDouble("currentWeight"); // Werte werden ausgelesen
+            if (document.exists()) {
+                Double currentWeight = document.getDouble("currentWeight");
                 Double lastWeight = document.getDouble("lastWeight");
 
-                //Werte aktualisieren
                 if (currentWeight != null) {
                     tvCurrentWeight.setText(currentWeight + " kg");
                 }
@@ -69,24 +69,18 @@ public class HomeFragment extends Fragment {
                     tvLastWeight.setText("Letztes Gewicht: " + lastWeight + " kg");
                 }
             }
-
-        }) //Sicherheit, falls ein Fehler entsteht
-        .addOnFailureListener(e -> {
+        }).addOnFailureListener(e -> {
             Toast.makeText(getContext(), "Fehler beim Laden", Toast.LENGTH_SHORT).show();
         });
     }
 
-
-    // Dialog-Fenster für das Aktualisieren von Gewicht
     private void showUpdateWeightDialog() {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_update_weight, null);  // lädt die xml
-        EditText etWeight = dialogView.findViewById(R.id.etWeight);  // Das Eingabefeld aus der xml
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_update_weight, null);
+        EditText etWeight = dialogView.findViewById(R.id.etWeight);
 
-        // Erstellt den Dialog-Builder baut unser xml in das dialog feld ein
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
         builder.setView(dialogView);
 
-        //bestätigungsbutton mit Umwandlung von String in Double
         builder.setPositiveButton("Speichern", (dialog, which) -> {
             String weightStr = etWeight.getText().toString().trim();
             if (!weightStr.isEmpty()) {
@@ -96,25 +90,19 @@ public class HomeFragment extends Fragment {
             }
         });
 
-        //back button
         builder.setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss());
 
         builder.show();
     }
 
-    //Speichern der Gewichtsdaten
     private void saveWeight(double newWeight) {
         String userID = mAuth.getCurrentUser().getUid();
 
         db.collection("users").document(userID)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
-
-                    //Erstellung der Value Paare - (String = "currentWeight", Object = "newWeight" oder 63,5)
-                    //Somit werden Daten dann zu Firebase geschickt
                     Map<String, Object> data = new HashMap<>();
 
-                    //Altes Gewicht wird zu lastWeight, Neues Gewicht wird zu currentWeight
                     if (documentSnapshot.exists() && documentSnapshot.getDouble("currentWeight") != null) {
                         data.put("lastWeight", documentSnapshot.getDouble("currentWeight"));
                     }
@@ -122,7 +110,7 @@ public class HomeFragment extends Fragment {
                     data.put("currentWeight", newWeight);
 
                     db.collection("users").document(userID)
-                            .set(data, com.google.firebase.firestore.SetOptions.merge()) //SetOptions.merge(): nur neue Daten werden überschrieben, nichts anderes gelöscht
+                            .set(data, com.google.firebase.firestore.SetOptions.merge())
                             .addOnSuccessListener(aVoid -> {
                                 tvCurrentWeight.setText(newWeight + " kg");
                                 Toast.makeText(getContext(), "Gewicht gespeichert!", Toast.LENGTH_SHORT).show();
@@ -132,6 +120,105 @@ public class HomeFragment extends Fragment {
                                 Toast.makeText(getContext(), "Fehler beim Speichern!", Toast.LENGTH_SHORT).show();
                             });
                 });
+    }
 
+    //liefert das heutige Datum im gleichen Format wie im CalendarFragment (Jahr-Monat-Tag)
+    private String getTodayDateString() {
+        Calendar calendar = Calendar.getInstance();
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH) + 1;
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+        return year + "-" + month + "-" + day;
+    }
+
+    //lädt das für heute geplante Workout (falls vorhanden) und zeigt es an
+    private void loadTodayWorkout() {
+        String userID = mAuth.getCurrentUser().getUid();
+        String today = getTodayDateString();
+
+        db.collection("users").document(userID)
+                .collection("plannedWorkouts").document(today)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String workoutName = documentSnapshot.getString("workoutName");
+                        if (workoutName != null) {
+                            tvTodayWorkout.setText("Heutiges Workout: " + workoutName);
+                        }
+                    } else {
+                        tvTodayWorkout.setText("Kein Workout für heute geplant");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    tvTodayWorkout.setText("Fehler beim Laden");
+                });
+    }
+
+    // Dialog zum Auswählen eines bereits im Workouts-Tab erstellten Workouts für heute
+    private void showSelectWorkoutDialog() {
+        String userID = mAuth.getCurrentUser().getUid();
+
+        db.collection("users").document(userID)
+                .collection("workouts")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<Workout> workouts = new ArrayList<>();
+                    for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                        String id = doc.getId();
+                        String name = doc.getString("name");
+                        workouts.add(new Workout(id, name));
+                    }
+
+                    if (workouts.isEmpty()) {
+                        Toast.makeText(getContext(), "Bitte zuerst im Workouts-Tab ein Workout anlegen", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    List<String> workoutNames = new ArrayList<>();
+                    for (Workout w : workouts) {
+                        workoutNames.add(w.getName());
+                    }
+
+                    Spinner spinner = new Spinner(getContext());
+                    ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(requireContext(),
+                            android.R.layout.simple_spinner_dropdown_item, workoutNames);
+                    spinner.setAdapter(spinnerAdapter);
+
+                    AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                    builder.setTitle("Workout für heute auswählen");
+                    builder.setView(spinner);
+
+                    builder.setPositiveButton("Speichern", (dialog, which) -> {
+                        int selectedIndex = spinner.getSelectedItemPosition();
+                        Workout selectedWorkout = workouts.get(selectedIndex);
+                        assignWorkoutToToday(selectedWorkout);
+                    });
+
+                    builder.setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss());
+
+                    builder.show();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "Fehler beim Laden der Workouts", Toast.LENGTH_SHORT).show());
+    }
+
+    //speichert die Auswahl als heutiges Workout in plannedWorkouts
+    private void assignWorkoutToToday(Workout workout) {
+        String userID = mAuth.getCurrentUser().getUid();
+        String today = getTodayDateString();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("workoutId", workout.getID());
+        data.put("workoutName", workout.getName());
+
+        db.collection("users").document(userID)
+                .collection("plannedWorkouts").document(today)
+                .set(data)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Workout für heute gespeichert!", Toast.LENGTH_SHORT).show();
+                    loadTodayWorkout();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(), "Fehler beim Speichern", Toast.LENGTH_SHORT).show());
     }
 }
