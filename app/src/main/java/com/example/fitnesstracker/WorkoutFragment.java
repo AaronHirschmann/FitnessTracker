@@ -1,12 +1,15 @@
 package com.example.fitnesstracker;
 
 import android.app.AlertDialog;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -15,8 +18,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
@@ -28,10 +29,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkoutActionListener {
+public class WorkoutFragment extends Fragment {
 
-    private WorkoutAdapter adapter;
     private final List<Workout> workoutList = new ArrayList<>();
+    private LinearLayout workoutContainer;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
@@ -47,11 +48,7 @@ public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkou
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
-        RecyclerView recyclerView = view.findViewById(R.id.recyclerViewWorkouts);
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-
-        adapter = new WorkoutAdapter(workoutList, this);
-        recyclerView.setAdapter(adapter);
+        workoutContainer = view.findViewById(R.id.container_workouts);
 
         loadWorkouts();
 
@@ -73,11 +70,61 @@ public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkou
                         List<String> exerciseNames = (List<String>) doc.get("exerciseNames");
                         workoutList.add(new Workout(id, name, exerciseNames));
                     }
-                    adapter.notifyDataSetChanged();
+                    renderWorkouts();
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "Fehler beim Laden", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    // Baut die Liste der Workouts als Zeilen mit Icon-Buttons und Trennlinie auf
+    private void renderWorkouts() {
+        workoutContainer.removeAllViews();
+
+        if (workoutList.isEmpty()) {
+            TextView empty = new TextView(requireContext());
+            empty.setText("Noch keine Workouts angelegt.");
+            workoutContainer.addView(empty);
+            return;
+        }
+
+        for (Workout workout : workoutList) {
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(8, 24, 8, 24);
+
+            TextView text = new TextView(requireContext());
+            text.setText(workout.getName());
+            text.setTextSize(16);
+            text.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+            ImageButton btnEdit = new ImageButton(requireContext());
+            btnEdit.setImageResource(android.R.drawable.ic_menu_edit);
+            btnEdit.setBackgroundColor(Color.TRANSPARENT);
+            btnEdit.setContentDescription("Workout bearbeiten");
+            btnEdit.setOnClickListener(v -> showWorkoutDialog(workout));
+
+            ImageButton btnDelete = new ImageButton(requireContext());
+            btnDelete.setImageResource(android.R.drawable.ic_menu_delete);
+            btnDelete.setBackgroundColor(Color.TRANSPARENT);
+            btnDelete.setContentDescription("Workout löschen");
+            LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            deleteParams.leftMargin = 8;
+            btnDelete.setLayoutParams(deleteParams);
+            btnDelete.setOnClickListener(v -> deleteWorkout(workout));
+
+            row.addView(text);
+            row.addView(btnEdit);
+            row.addView(btnDelete);
+            workoutContainer.addView(row);
+
+            View divider = new View(requireContext());
+            divider.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2));
+            divider.setBackgroundColor(Color.LTGRAY);
+            workoutContainer.addView(divider);
+        }
     }
 
     private void saveWorkout(String name, List<String> exerciseNames) {
@@ -133,7 +180,6 @@ public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkou
                 });
     }
 
-    // Ein Dialog für Neu-Anlegen UND Bearbeiten: existingWorkout == null -> neues Workout
     private void showWorkoutDialog(@Nullable Workout existingWorkout) {
         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_workout, null);
 
@@ -142,7 +188,6 @@ public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkou
         Spinner spinner = dialogView.findViewById(R.id.spinner_workout_exercise_select);
         Button btnAddExercise = dialogView.findViewById(R.id.btn_add_workout_exercise);
 
-        // Arbeitskopie der zugeordneten Übungen (leer bei neuem Workout)
         List<String> currentExerciseNames = new ArrayList<>();
         if (existingWorkout != null) {
             inputName.setText(existingWorkout.getName());
@@ -152,7 +197,6 @@ public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkou
         }
         showExerciseRows(exerciseContainer, currentExerciseNames);
 
-        // Übungs-Katalog laden und ins Dropdown packen
         String userID = mAuth.getCurrentUser().getUid();
         db.collection("users").document(userID)
                 .collection("exercises")
@@ -219,7 +263,6 @@ public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkou
         builder.show();
     }
 
-    // Baut die Liste der zugeordneten Übungen als einfache Zeilen (Text + Löschen-Button) neu auf
     private void showExerciseRows(LinearLayout container, List<String> exerciseNames) {
         container.removeAllViews();
 
@@ -243,15 +286,5 @@ public class WorkoutFragment extends Fragment implements WorkoutAdapter.OnWorkou
             row.addView(btnDelete);
             container.addView(row);
         }
-    }
-
-    @Override
-    public void onEditClicked(Workout workout) {
-        showWorkoutDialog(workout);
-    }
-
-    @Override
-    public void onDeleteClicked(Workout workout) {
-        deleteWorkout(workout);
     }
 }
