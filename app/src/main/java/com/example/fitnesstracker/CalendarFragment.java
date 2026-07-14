@@ -134,5 +134,16 @@ public class CalendarFragment extends Fragment {
         Map<String, Object> data = new HashMap<>();
         data.put("workoutId", workout.getID());
         data.put("workoutName", workout.getName());
+
+        db.collection("users").document(userID)
+                .collection("plannedWorkouts").document(date)
+                .set(data)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Workout geplant!", Toast.LENGTH_SHORT).show();
+                    loadWorkoutForDate(date);
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Fehler beim Speichern", Toast.LENGTH_SHORT).show();
+                });
     }
 }
