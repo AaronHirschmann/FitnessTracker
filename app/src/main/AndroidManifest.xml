@@ -38,6 +38,10 @@
             android:name=".ResetPasswordActivity"
             android:exported="false"/>
 
+        <activity
+            android:name=".SessionActivity"
+            android:exported="false"/>
+
     </application>
 
 </manifest>
