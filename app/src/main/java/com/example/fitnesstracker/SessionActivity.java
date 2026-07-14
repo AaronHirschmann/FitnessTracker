@@ -21,6 +21,8 @@ import java.util.Map;
 
 public class SessionActivity extends AppCompatActivity {
 
+    // "Sätze" ist eine optionale Metrik wie jede andere. Ist sie dabei, gibt es mehrere Zeilen (eine pro Satz).
+    // Ist sie NICHT dabei (z.B. nur "Zeit"/"Distanz"), gibt es genau eine Zeile mit den vorhandenen Metriken.
     private static final String SETS_METRIC = "Sätze";
 
     private FirebaseFirestore db;
@@ -31,12 +33,10 @@ public class SessionActivity extends AppCompatActivity {
     private TextView tvTitle;
     private Button btnSave;
 
-    // Session-Struktur: Liste von Übungen, jede mit "name", "metrics" (Liste) und "sets" (Liste von Wertesätzen)
     private List<Map<String, Object>> sessionExercises = new ArrayList<>();
     private String workoutId;
     private String workoutName;
 
-    // Merkt sich pro Übung -> pro Satz -> Metrik -> EditText, um beim Speichern/Umbauen die aktuellen Werte auszulesen
     private final List<List<Map<String, EditText>>> inputRefs = new ArrayList<>();
 
     @Override
@@ -157,22 +157,29 @@ public class SessionActivity extends AppCompatActivity {
                             }
                         }
                         if (name != null) {
-                            metricsByName.put(name, metrics);
+                            metricsByName.put(name.trim(), metrics);
                         }
                     }
 
                     sessionExercises = new ArrayList<>();
                     for (String exerciseName : exerciseNames) {
-                        List<String> metrics = metricsByName.get(exerciseName);
+                        String trimmedName = exerciseName.trim();
+                        boolean foundInCatalog = metricsByName.containsKey(trimmedName);
+                        List<String> metrics = metricsByName.get(trimmedName);
                         if (metrics == null) {
                             metrics = new ArrayList<>();
+                        }
+
+                        if (!foundInCatalog) {
+                            Toast.makeText(this, "\"" + exerciseName + "\" wurde im Übungen-Katalog nicht gefunden", Toast.LENGTH_LONG).show();
+                        } else if (metrics.isEmpty()) {
+                            Toast.makeText(this, "\"" + exerciseName + "\" hat keine Metriken hinterlegt", Toast.LENGTH_LONG).show();
                         }
 
                         Map<String, Object> exerciseEntry = new HashMap<>();
                         exerciseEntry.put("name", exerciseName);
                         exerciseEntry.put("metrics", metrics);
 
-                        // Ein leerer Startsatz
                         List<Map<String, Object>> sets = new ArrayList<>();
                         sets.add(new HashMap<>());
                         exerciseEntry.put("sets", sets);
@@ -187,7 +194,6 @@ public class SessionActivity extends AppCompatActivity {
                         Toast.makeText(this, "Fehler beim Laden der Übungen: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
-    // Stellt sicher, dass jede geladene Übung ein "sets"-Feld hat (Kompatibilität mit alten, vor der Satz-Funktion gespeicherten Sessions)
     private void normalizeExercisesData() {
         for (Map<String, Object> exercise : sessionExercises) {
             Object rawSets = exercise.get("sets");
@@ -256,9 +262,12 @@ public class SessionActivity extends AppCompatActivity {
                 continue;
             }
 
+            // GEÄNDERT: "Sätze" ist rein optional. hasSets bestimmt nur, ob mehrere Zeilen
+            // (eine pro Satz) gezeigt werden. Alle anderen Metriken (Zeit, Distanz, ...) werden
+            // in jedem Fall angezeigt - unabhängig davon, ob "Sätze" dabei ist oder nicht.
             boolean hasSets = metrics.contains(SETS_METRIC);
-            List<String> setMetrics = new ArrayList<>(metrics);
-            setMetrics.remove(SETS_METRIC);
+            List<String> rowMetrics = new ArrayList<>(metrics);
+            rowMetrics.remove(SETS_METRIC);
 
             LinearLayout setsContainer = new LinearLayout(this);
             setsContainer.setOrientation(LinearLayout.VERTICAL);
@@ -266,15 +275,11 @@ public class SessionActivity extends AppCompatActivity {
 
             inputRefs.add(new ArrayList<>());
 
-            if (setMetrics.isEmpty() && !hasSets) {
-                TextView onlySetsMetric = new TextView(this);
-                onlySetsMetric.setText("Nur \"Sätze\" als Metrik hinterlegt – bitte im Übungen-Tab weitere Metriken hinzufügen");
-                setsContainer.addView(onlySetsMetric);
-                continue;
-            }
-
             final int exerciseIndex = i;
-            renderSetsForExercise(exerciseIndex, setsContainer, setMetrics, hasSets);
+
+            // GEÄNDERT: der alte Sonderfall-Block, der hier fälschlich "continue" auslösen konnte,
+            // wurde entfernt. Es gibt immer mindestens eine Zeile - egal welche Metriken vorhanden sind.
+            renderSetsForExercise(exerciseIndex, setsContainer, rowMetrics, hasSets);
 
             if (hasSets) {
                 Button btnAddSet = new Button(this);
@@ -282,15 +287,16 @@ public class SessionActivity extends AppCompatActivity {
                 btnAddSet.setOnClickListener(v -> {
                     syncExerciseInputsToData(exerciseIndex);
                     getSets(sessionExercises.get(exerciseIndex)).add(new HashMap<>());
-                    renderSetsForExercise(exerciseIndex, setsContainer, setMetrics, true);
+                    renderSetsForExercise(exerciseIndex, setsContainer, rowMetrics, true);
                 });
                 container.addView(btnAddSet);
             }
         }
     }
 
-    // Baut nur die Satz-Zeilen EINER Übung neu auf (nicht die ganze Eingabemaske)
-    private void renderSetsForExercise(int exerciseIndex, LinearLayout setsContainer, List<String> setMetrics, boolean hasSets) {
+    // Baut nur die Zeilen EINER Übung neu auf. Bei hasSets=false gibt es genau eine Zeile
+    // ohne "Satz X"-Label und ohne Hinzufügen/Löschen-Buttons.
+    private void renderSetsForExercise(int exerciseIndex, LinearLayout setsContainer, List<String> rowMetrics, boolean hasSets) {
         setsContainer.removeAllViews();
         inputRefs.get(exerciseIndex).clear();
 
@@ -313,7 +319,13 @@ public class SessionActivity extends AppCompatActivity {
 
             Map<String, EditText> fieldsForSet = new HashMap<>();
 
-            for (String metric : setMetrics) {
+            if (rowMetrics.isEmpty()) {
+                TextView noOtherMetrics = new TextView(this);
+                noOtherMetrics.setText("(keine weiteren Metriken hinterlegt)");
+                row.addView(noOtherMetrics);
+            }
+
+            for (String metric : rowMetrics) {
                 EditText input = new EditText(this);
                 input.setHint(metric);
                 input.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -339,7 +351,7 @@ public class SessionActivity extends AppCompatActivity {
                     if (currentSets.isEmpty()) {
                         currentSets.add(new HashMap<>());
                     }
-                    renderSetsForExercise(exerciseIndex, setsContainer, setMetrics, true);
+                    renderSetsForExercise(exerciseIndex, setsContainer, rowMetrics, true);
                 });
                 row.addView(btnDeleteSet);
             }
@@ -349,7 +361,6 @@ public class SessionActivity extends AppCompatActivity {
         }
     }
 
-    // Liest die aktuell in der UI stehenden Werte einer Übung aus und schreibt sie zurück in sessionExercises
     private void syncExerciseInputsToData(int exerciseIndex) {
         List<Map<String, Object>> sets = getSets(sessionExercises.get(exerciseIndex));
         List<Map<String, EditText>> fieldsPerSet = inputRefs.get(exerciseIndex);
