@@ -9,7 +9,9 @@ import android.widget.Toast;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RegisterActivity extends AppCompatActivity {
@@ -47,7 +49,7 @@ public class RegisterActivity extends AppCompatActivity {
         }
 
         if (email.isEmpty()) {
-            etUsername.setError("Bitte Email eingeben");
+            etEmail.setError("Bitte Email eingeben");
             return;
         }
 
@@ -81,6 +83,7 @@ public class RegisterActivity extends AppCompatActivity {
                         .collection("users").document(userID)
                         .set(userData)
                         .addOnSuccessListener(aVoid -> {
+                            createDefaultExercisesAndWorkouts(userID);
                             Toast.makeText(this, "Registrierung erfolgreich!", Toast.LENGTH_SHORT).show();
                             startActivity(new Intent(this, LoginActivity.class));
                             finish();
@@ -92,5 +95,63 @@ public class RegisterActivity extends AppCompatActivity {
                 Toast.makeText(this, "Fehler: " + task.getException().getMessage(),Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    private void createDefaultExercisesAndWorkouts(String userID) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        String[][] exercises = {
+                {"Bankdrücken", "Gewicht", "Wiederholungen", "Sätze"},
+                {"Kniebeuge", "Gewicht", "Wiederholungen", "Sätze"},
+                {"Kreuzheben", "Gewicht", "Wiederholungen", "Sätze"},
+                {"Schulterdrücken", "Gewicht", "Wiederholungen", "Sätze"},
+                {"Klimmzüge", "Wiederholungen", "Sätze"},
+                {"Dips", "Wiederholungen", "Sätze"},
+                {"Laufen", "Zeit", "Distanz"},
+                {"Radfahren", "Zeit", "Distanz"}
+        };
+
+        for (String[] exercise : exercises) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("name", exercise[0]);
+
+            List<String> metrics = new ArrayList<>();
+            for (int i = 1; i < exercise.length; i++) {
+                metrics.add(exercise[i]);
+            }
+            data.put("metrics", metrics);
+
+            db.collection("users").document(userID)
+                    .collection("exercises")
+                    .add(data);
+        }
+
+        // Workouts nach 2 Sekunden anlegen
+        new android.os.Handler().postDelayed(() ->
+                createDefaultWorkouts(userID, db), 2000);
+    }
+
+    private void createDefaultWorkouts(String userID, FirebaseFirestore db) {
+        Object[][] workouts = {
+                {"Push Day", new String[]{"Bankdrücken", "Schulterdrücken", "Dips"}},
+                {"Pull Day", new String[]{"Klimmzüge", "Kreuzheben"}},
+                {"Leg Day", new String[]{"Kniebeuge"}},
+                {"Cardio", new String[]{"Laufen", "Radfahren"}}
+        };
+
+        for (Object[] workout : workouts) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("name", workout[0]);
+
+            List<String> exerciseNames = new ArrayList<>();
+            for (String name : (String[]) workout[1]) {
+                exerciseNames.add(name);
+            }
+            data.put("exerciseNames", exerciseNames);
+
+            db.collection("users").document(userID)
+                    .collection("workouts")
+                    .add(data);
+        }
     }
 }

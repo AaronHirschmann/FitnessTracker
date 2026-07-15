@@ -82,6 +82,7 @@ public class CalendarFragment extends Fragment {
                     if (documentSnapshot.exists()) {
                         String workoutName = documentSnapshot.getString("workoutName");
                         String workoutId = documentSnapshot.getString("workoutId");
+                        btnAddWorkoutToDate.setVisibility(View.GONE);
                         btnRemoveWorkoutFromDate.setVisibility(View.VISIBLE);
                         if (workoutName != null) {
                             tvWorkoutOnDate.setText("Workout: " + workoutName);
@@ -92,6 +93,7 @@ public class CalendarFragment extends Fragment {
                     } else {
                         tvWorkoutOnDate.setText("Kein Workout geplant");
                         tvExercisesOnDate.setText("");
+                        btnAddWorkoutToDate.setVisibility(View.VISIBLE);
                         btnRemoveWorkoutFromDate.setVisibility(View.GONE);
                     }
                 })
@@ -151,6 +153,7 @@ public class CalendarFragment extends Fragment {
                                 tvWorkoutOnDate.setText("Kein Workout geplant");
                                 tvExercisesOnDate.setText("");
                                 btnRemoveWorkoutFromDate.setVisibility(View.GONE);
+                                btnAddWorkoutToDate.setVisibility(View.VISIBLE);
                             })
                             .addOnFailureListener(e -> {
                                 Toast.makeText(getContext(), "Fehler beim Entfernen", Toast.LENGTH_SHORT).show();

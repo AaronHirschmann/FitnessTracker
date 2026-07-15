@@ -49,7 +49,8 @@
         android:id="@+id/btnAddWorkoutToDate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Workout für diesen Tag planen"/>
+        android:text="Workout für diesen Tag planen"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/btnRemoveWorkoutFromDate"
