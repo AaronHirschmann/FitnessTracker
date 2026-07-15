@@ -94,7 +94,9 @@ public class SessionActivity extends AppCompatActivity {
                                     rawExercises = null;
                                 }
 
-                                //Hat die Session Übungen?
+                                // Prüfen ob rawExercises eine nicht-leere Liste ist
+                                // → instanceof List: ist rawExercises überhaupt eine Liste?
+                                // → !isEmpty(): hat die Liste mindestens einen Eintrag?
                                 boolean hasExercises;
                                 if (rawExercises instanceof List) {
                                     if (!((List<?>) rawExercises).isEmpty()) {
@@ -106,7 +108,9 @@ public class SessionActivity extends AppCompatActivity {
                                     hasExercises = false;
                                 }
 
-                                //Workout-ID der gespeicherten Session holen
+                                // Workout-ID der gespeicherten Session holen
+                                // -> wird später mit plannedWorkoutId verglichen
+                                // null, wenn noch keine Session für den Tag existiert
                                 String sessionWorkoutId;
                                 if (sessionDoc.exists()) {
                                     sessionWorkoutId = sessionDoc.getString("workoutId");
@@ -128,7 +132,7 @@ public class SessionActivity extends AppCompatActivity {
                                     sessionExercises = (List<Map<String, Object>>) rawExercises;
                                     normalizeExercisesData(); // eigene Methode für normalisierung der Daten
                                     renderExercises(); // eigene Methode für rendern der Daten
-                                } else { // Absicherung
+                                } else { // neue Session
                                     workoutId = plannedWorkoutId;
                                     workoutName = plannedWorkoutName;
                                     loadWorkoutDetails(userID);
@@ -398,7 +402,7 @@ public class SessionActivity extends AppCompatActivity {
             // Für jede Metrik ein Eingabefeld erstellen
             for (String metric : rowMetrics) {
                 EditText input = new EditText(this);
-                // GEÄNDERT: Hint zeigt wieder nur den reinen Metriknamen (ohne Einheit in Klammern)
+
                 if (metric.equals("Wiederholungen")) {
                     input.setHint("Anzahl");
                 } else {
