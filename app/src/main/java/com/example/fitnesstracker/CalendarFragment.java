@@ -138,20 +138,26 @@ public class CalendarFragment extends Fragment {
             return;
         }
 
-        String userID = mAuth.getCurrentUser().getUid();
-
-        db.collection("users").document(userID)
-                .collection("plannedWorkouts").document(selectedDate)
-                .delete()
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Workout entfernt!", Toast.LENGTH_SHORT).show();
-                    tvWorkoutOnDate.setText("Kein Workout geplant");
-                    tvExercisesOnDate.setText("");
-                    btnRemoveWorkoutFromDate.setVisibility(View.GONE);
+        new AlertDialog.Builder(getContext())
+                .setTitle("Workout entfernen")
+                .setMessage("Möchtest du das Workout für " + selectedDate + " wirklich entfernen?")
+                .setPositiveButton("Entfernen", (dialog, which) -> {
+                    String userID = mAuth.getCurrentUser().getUid();
+                    db.collection("users").document(userID)
+                            .collection("plannedWorkouts").document(selectedDate)
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(getContext(), "Workout entfernt!", Toast.LENGTH_SHORT).show();
+                                tvWorkoutOnDate.setText("Kein Workout geplant");
+                                tvExercisesOnDate.setText("");
+                                btnRemoveWorkoutFromDate.setVisibility(View.GONE);
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(getContext(), "Fehler beim Entfernen", Toast.LENGTH_SHORT).show();
+                            });
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Fehler beim Entfernen", Toast.LENGTH_SHORT).show();
-                });
+                .setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     private void showAddWorkoutDialog() {

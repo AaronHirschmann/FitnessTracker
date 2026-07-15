@@ -146,18 +146,24 @@ public class ExerciseFragment extends Fragment {
     }
 
     private void deleteExercise(Exercise exercise) {
-        String userID = mAuth.getCurrentUser().getUid();
-
-        db.collection("users").document(userID)
-                .collection("exercises").document(exercise.getID())
-                .delete()
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Übung gelöscht!", Toast.LENGTH_SHORT).show();
-                    loadExercises();
+        new AlertDialog.Builder(getContext())
+                .setTitle("Übung löschen")
+                .setMessage("Möchtest du \"" + exercise.getName() + "\" wirklich löschen?")
+                .setPositiveButton("Löschen", (dialog, which) -> {
+                    String userID = mAuth.getCurrentUser().getUid();
+                    db.collection("users").document(userID)
+                            .collection("exercises").document(exercise.getID())
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(getContext(), "Übung gelöscht!", Toast.LENGTH_SHORT).show();
+                                loadExercises();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(getContext(), "Fehler beim Löschen", Toast.LENGTH_SHORT).show();
+                            });
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Fehler beim Löschen", Toast.LENGTH_SHORT).show();
-                });
+                .setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     private void updateExercise(Exercise exercise, String newName, List<String> newMetrics) {

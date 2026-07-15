@@ -147,18 +147,24 @@ public class WorkoutFragment extends Fragment {
     }
 
     private void deleteWorkout(Workout workout) {
-        String userID = mAuth.getCurrentUser().getUid();
-
-        db.collection("users").document(userID)
-                .collection("workouts").document(workout.getID())
-                .delete()
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Workout gelöscht!", Toast.LENGTH_SHORT).show();
-                    loadWorkouts();
+        new AlertDialog.Builder(getContext())
+                .setTitle("Workout löschen")
+                .setMessage("Möchtest du \"" + workout.getName() + "\" wirklich löschen?")
+                .setPositiveButton("Löschen", (dialog, which) -> {
+                    String userID = mAuth.getCurrentUser().getUid();
+                    db.collection("users").document(userID)
+                            .collection("workouts").document(workout.getID())
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(getContext(), "Workout gelöscht!", Toast.LENGTH_SHORT).show();
+                                loadWorkouts();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(getContext(), "Fehler beim Löschen", Toast.LENGTH_SHORT).show();
+                            });
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Fehler beim Löschen", Toast.LENGTH_SHORT).show();
-                });
+                .setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     private void updateWorkout(Workout workout, String newName, List<String> newExerciseNames) {
