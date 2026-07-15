@@ -27,7 +27,7 @@ import java.util.Map;
 
 public class HomeFragment extends Fragment {
 
-    private TextView tvCurrentWeight, tvLastWeight, tvTodayWorkout, tvTodayExercises;
+    private TextView tvDate, tvCurrentWeight, tvLastWeight, tvTodayWorkout, tvTodayExercises;
     private Button btnUpdateWeight, btnAddWorkout, btnStartSession;
 
     private FirebaseFirestore db;
@@ -41,6 +41,7 @@ public class HomeFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
+        tvDate = view.findViewById(R.id.tvDate);
         tvCurrentWeight = view.findViewById(R.id.tvCurrentWeight);
         tvLastWeight = view.findViewById(R.id.tvLastWeight);
         tvTodayWorkout = view.findViewById(R.id.tvTodayWorkout);
@@ -52,6 +53,13 @@ public class HomeFragment extends Fragment {
         btnUpdateWeight.setOnClickListener(v -> showUpdateWeightDialog());
         btnAddWorkout.setOnClickListener(v -> showSelectWorkoutDialog());
         btnStartSession.setOnClickListener(v -> startSession());
+
+        Calendar calendar = Calendar.getInstance();
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH) + 1;
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+        String date = String.format("%04d-%02d-%02d", year, month, day);
+        tvDate.setText(date);
 
         loadUserData();
         loadTodayWorkout();
