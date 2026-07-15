@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -41,18 +40,27 @@ public class RegisterActivity extends AppCompatActivity {
         String password = etPassword.getText().toString().trim();
         String passwordConfirm = etPasswordConfirm.getText().toString().trim();
 
+
         if (username.isEmpty()) {
             etUsername.setError("Bitte Nutzername eingeben");
             return;
         }
+
+        if (email.isEmpty()) {
+            etUsername.setError("Bitte Email eingeben");
+            return;
+        }
+
         if (password.isEmpty()) {
             etPassword.setError("Bitte Passwort eingeben");
             return;
         }
+
         if (password.length() < 6) {
             etPassword.setError("Passwort muss mind. 6 Zeichen haben");
             return;
         }
+
         if (!password.equals(passwordConfirm)) {
             etPasswordConfirm.setError("Passwörter stimmen nicht überein");
             return;

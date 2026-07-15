@@ -26,7 +26,11 @@ public class Exercise {
     }
 
     public List<String> getMetrics() {
-        return metrics;
+        if (metrics != null) {
+            return metrics;
+        } else {
+            return new ArrayList<>();
+        }
     }
 
     public void setName(String name) {
