@@ -28,6 +28,12 @@ public class LoginActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance(); // Firebase wird initialisiert
 
+        if (mAuth.getCurrentUser() != null) {
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
+            return;
+        }
+
         // Verbinden der UI Elemente mit XML aus activity_login.xml
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
