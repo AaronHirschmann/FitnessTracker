@@ -24,7 +24,9 @@ public class SettingsActivity extends AppCompatActivity {
         btnLogout.setOnClickListener(v -> logoutUser());
 
         btnResetPassword.setOnClickListener(v -> {
-            startActivity(new Intent(this, ResetPasswordActivity.class));
+            Intent intent = new Intent(this, ResetPasswordActivity.class);
+            intent.putExtra("fromSettings", true);
+            startActivity(intent);
         });
     }
 
