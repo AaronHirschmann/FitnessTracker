@@ -58,7 +58,7 @@ public class CalendarFragment extends Fragment {
         btnRemoveWorkoutFromDate.setOnClickListener(v -> removeWorkoutFromDate());
 
         String today = getTodayDateString();
-        tvSelectedDate.setText("Ausgewähltes Datum " + today);
+        tvSelectedDate.setText("Ausgewähltes Datum: " + today);
         selectedDate = today;
         loadWorkoutForDate(today);
 
