@@ -48,9 +48,6 @@ public class ProfileFragment extends Fragment {
         });
         loadProfileData();
 
-
-
-
         return view;
     }
 
