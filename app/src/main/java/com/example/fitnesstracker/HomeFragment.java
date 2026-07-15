@@ -152,9 +152,13 @@ public class HomeFragment extends Fragment {
                         if (workoutId != null) {
                             loadWorkoutExercises(userID, workoutId);
                         }
+                        // Workout existiert → Button umbenennen
+                        btnAddWorkout.setText("Workout anpassen");
                     } else {
                         tvTodayWorkout.setText("Kein Workout für heute geplant");
                         tvTodayExercises.setText("");
+                        // Kein Workout → Button zurücksetzen
+                        btnAddWorkout.setText("Workout hinzufügen");
                     }
                 })
                 .addOnFailureListener(e -> {
