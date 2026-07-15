@@ -51,7 +51,7 @@ public class HomeFragment extends Fragment {
 
         btnUpdateWeight.setOnClickListener(v -> showUpdateWeightDialog());
         btnAddWorkout.setOnClickListener(v -> showSelectWorkoutDialog());
-        btnStartSession.setOnClickListener(v -> startSession()); // NEU
+        btnStartSession.setOnClickListener(v -> startSession());
 
         loadUserData();
         loadTodayWorkout();
