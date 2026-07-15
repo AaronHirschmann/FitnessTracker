@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class CalendarFragment extends Fragment {
 
-    private CalendarView calendarView;
+    private CalendarView calendarView; // Android eingebauter Kalender
     private TextView tvSelectedDate, tvWorkoutOnDate, tvExercisesOnDate;
     private Button btnAddWorkoutToDate, btnRemoveWorkoutFromDate;
     private FirebaseFirestore db;
@@ -48,7 +48,16 @@ public class CalendarFragment extends Fragment {
         btnRemoveWorkoutFromDate = view.findViewById(R.id.btnRemoveWorkoutFromDate);
 
 
-        calendarView.setOnDateChangeListener((view1, year, month, dayOfMonth) -> {
+        // Beim öffnen des Kalenders wird automatisch der heutige Tag ausgewählt
+        // User kann sehen ob heute ein Workout geplant ist
+        String today = getTodayDateString(); // eigene Methode für den ausgewählten Tag
+        tvSelectedDate.setText("Ausgewähltes Datum: " + today);
+        selectedDate = today;
+        loadWorkoutForDate(today); // ist heute ein Workout geplant?
+
+
+        //wird ausgelöst, wenn der User auf ein Tag klickt
+        calendarView.setOnDateChangeListener((calView, year, month, dayOfMonth) -> {
             selectedDate = year + "-" + (month + 1) + "-" + dayOfMonth;
             tvSelectedDate.setText("Ausgewähltes Datum: " + selectedDate);
             loadWorkoutForDate(selectedDate);
@@ -57,14 +66,11 @@ public class CalendarFragment extends Fragment {
         btnAddWorkoutToDate.setOnClickListener(v -> showAddWorkoutDialog());
         btnRemoveWorkoutFromDate.setOnClickListener(v -> removeWorkoutFromDate());
 
-        String today = getTodayDateString();
-        tvSelectedDate.setText("Ausgewähltes Datum: " + today);
-        selectedDate = today;
-        loadWorkoutForDate(today);
 
         return view;
     }
 
+    // ohne führende Nullen, da wir ihn als DokumentID nutzen um in Firestore auf Dokumente zuzugreifen
     private String getTodayDateString() {
         java.util.Calendar calendar = java.util.Calendar.getInstance();
         int year = calendar.get(java.util.Calendar.YEAR);
@@ -72,29 +78,31 @@ public class CalendarFragment extends Fragment {
         int day = calendar.get(java.util.Calendar.DAY_OF_MONTH);
         return year + "-" + month + "-" + day;
     }
-    private void loadWorkoutForDate(String date) {
+
+    //geplantes Workout für ein bestimmtes Datum aus Firestore laden
+    private void loadWorkoutForDate(String date) { //Konnektor nutzt den date String
         String userID = mAuth.getCurrentUser().getUid();
 
         db.collection("users").document(userID)
                 .collection("plannedWorkouts").document(date)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
+                    if (documentSnapshot.exists()) { //Wenn ein geplantes Workout besteht
                         String workoutName = documentSnapshot.getString("workoutName");
                         String workoutId = documentSnapshot.getString("workoutId");
-                        btnAddWorkoutToDate.setVisibility(View.GONE);
-                        btnRemoveWorkoutFromDate.setVisibility(View.VISIBLE);
+                        btnAddWorkoutToDate.setVisibility(View.GONE); //Add Workout Button verschwindet
+                        btnRemoveWorkoutFromDate.setVisibility(View.VISIBLE); //Remove Workout Button erscheint
                         if (workoutName != null) {
                             tvWorkoutOnDate.setText("Workout: " + workoutName);
                         }
                         if (workoutId != null) {
-                            loadExercisesForWorkout(userID, workoutId);
+                            loadExercisesForWorkout(userID, workoutId); //eigene Methode für das Laden der Übungen der einzelnen Workouts
                         }
-                    } else {
+                    } else { //Wenn kein Workout für den Tag besteht
                         tvWorkoutOnDate.setText("Kein Workout geplant");
                         tvExercisesOnDate.setText("");
-                        btnAddWorkoutToDate.setVisibility(View.VISIBLE);
-                        btnRemoveWorkoutFromDate.setVisibility(View.GONE);
+                        btnAddWorkoutToDate.setVisibility(View.VISIBLE); //Add Workout Button erscheint
+                        btnRemoveWorkoutFromDate.setVisibility(View.GONE);//Remove Workout Button verschwindet
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -102,15 +110,17 @@ public class CalendarFragment extends Fragment {
                 });
     }
 
+    //Methode für das laden der Übungen der jeweiligen Workouts
     private void loadExercisesForWorkout(String userID, String workoutId) {
         db.collection("users").document(userID)
                 .collection("workouts").document(workoutId)
                 .get()
                 .addOnSuccessListener(workoutDoc -> {
                     if (workoutDoc.exists()) {
+                        //exerciseNames als Onject holen, weil Firestore Listen immer als Object übergibt
                         Object rawNames = workoutDoc.get("exerciseNames");
                         List<String> exerciseNames = new ArrayList<>();
-                        if (rawNames instanceof List) {
+                        if (rawNames instanceof List) { // Ist es wirklich eine Liste?
                             for (Object o : (List<?>) rawNames) {
                                 if (o instanceof String) {
                                     exerciseNames.add((String) o);
@@ -121,9 +131,10 @@ public class CalendarFragment extends Fragment {
                         if (exerciseNames.isEmpty()) {
                             tvExercisesOnDate.setText("Keine Übungen in diesem Workout");
                         } else {
+                            // Übungen mit Strichen aufbauen und den String zeigen
                             StringBuilder sb = new StringBuilder();
                             for (String name : exerciseNames) {
-                                sb.append("• ").append(name).append("\n");
+                                sb.append("- ").append(name).append("\n");
                             }
                             tvExercisesOnDate.setText(sb.toString().trim());
                         }
@@ -134,6 +145,7 @@ public class CalendarFragment extends Fragment {
                 });
     }
 
+    //geplantes Workout von einem Datum entfernen  mit Bestätigungsdialog
     private void removeWorkoutFromDate() {
         if (selectedDate == null) {
             Toast.makeText(getContext(), "Bitte zuerst ein Datum auswählen", Toast.LENGTH_SHORT).show();
@@ -148,12 +160,12 @@ public class CalendarFragment extends Fragment {
                     db.collection("users").document(userID)
                             .collection("plannedWorkouts").document(selectedDate)
                             .delete()
-                            .addOnSuccessListener(aVoid -> {
+                            .addOnSuccessListener(success -> {
                                 Toast.makeText(getContext(), "Workout entfernt!", Toast.LENGTH_SHORT).show();
-                                tvWorkoutOnDate.setText("Kein Workout geplant");
+                                tvWorkoutOnDate.setText("Kein Workout geplant"); // UI zurücksetzen
                                 tvExercisesOnDate.setText("");
-                                btnRemoveWorkoutFromDate.setVisibility(View.GONE);
-                                btnAddWorkoutToDate.setVisibility(View.VISIBLE);
+                                btnRemoveWorkoutFromDate.setVisibility(View.GONE); // Nach löschen removeWorkout Button verstecken
+                                btnAddWorkoutToDate.setVisibility(View.VISIBLE); // Nach löschen addWorkout Button zeigen
                             })
                             .addOnFailureListener(e -> {
                                 Toast.makeText(getContext(), "Fehler beim Entfernen", Toast.LENGTH_SHORT).show();
@@ -163,14 +175,16 @@ public class CalendarFragment extends Fragment {
                 .show();
     }
 
+    // Dialog zum auswählen eines Workouts für ein Datum
     private void showAddWorkoutDialog() {
-        if (selectedDate == null) {
+        if (selectedDate == null) { // ist ein Datum gewählt?
             Toast.makeText(getContext(), "Bitte zuerst ein Datum auswählen", Toast.LENGTH_SHORT).show();
             return;
         }
 
         String userID = mAuth.getCurrentUser().getUid();
 
+        // Alle Workouts des Users laden für den Spinner
         db.collection("users").document(userID)
                 .collection("workouts")
                 .get()
@@ -187,11 +201,13 @@ public class CalendarFragment extends Fragment {
                         return;
                     }
 
+                    // Namen für Spinner extrahieren
                     List<String> workoutNames = new ArrayList<>();
                     for (Workout w : workouts) {
                         workoutNames.add(w.getName());
                     }
 
+                    // Spinner mit Workout-Namen befüllen
                     Spinner spinner = new Spinner(getContext());
                     ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(requireContext(),
                             android.R.layout.simple_spinner_dropdown_item, workoutNames);
@@ -202,9 +218,11 @@ public class CalendarFragment extends Fragment {
                     builder.setView(spinner);
 
                     builder.setPositiveButton("Speichern", (dialog, which) -> {
+                        // Index des ausgewählten Workouts im Spinner entnehmen
                         int selectedIndex = spinner.getSelectedItemPosition();
+                        // Das dazugehörige Workout entnehmen
                         Workout selectedWorkout = workouts.get(selectedIndex);
-                        assignWorkoutToDate(selectedDate, selectedWorkout);
+                        assignWorkoutToDate(selectedDate, selectedWorkout); // eigene Methode für das hinzufügen von Workouts zu den Daten
                     });
 
                     builder.setNegativeButton("Abbrechen", (dialog, which) -> dialog.dismiss());
@@ -215,6 +233,7 @@ public class CalendarFragment extends Fragment {
                         Toast.makeText(getContext(), "Fehler beim Laden der Workouts", Toast.LENGTH_SHORT).show());
     }
 
+    // Ausgewähltes Workout für ein Datum in Firestore speichern
     private void assignWorkoutToDate(String date, Workout workout) {
         String userID = mAuth.getCurrentUser().getUid();
 
@@ -225,7 +244,7 @@ public class CalendarFragment extends Fragment {
         db.collection("users").document(userID)
                 .collection("plannedWorkouts").document(date)
                 .set(data)
-                .addOnSuccessListener(aVoid -> {
+                .addOnSuccessListener(success -> {
                     Toast.makeText(getContext(), "Workout geplant!", Toast.LENGTH_SHORT).show();
                     loadWorkoutForDate(date);
                 })

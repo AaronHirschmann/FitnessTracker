@@ -45,6 +45,7 @@ public class SessionActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
+        // Daten aus dem Intent empfangen
         date = getIntent().getStringExtra("date");
 
         tvTitle = findViewById(R.id.tv_session_title);
@@ -53,9 +54,12 @@ public class SessionActivity extends AppCompatActivity {
 
         btnSave.setOnClickListener(v -> saveSession());
 
-        loadOrCreateSession();
+        loadOrCreateSession(); // Methode für das Laden der Session
     }
 
+    // Prüft ob bereits eine Session für diesen Tag existiert
+    // → falls ja: laden und weiterführen
+    // → falls nein: neue Session erstellen
     private void loadOrCreateSession() {
         String userID = mAuth.getCurrentUser().getUid();
 
@@ -82,18 +86,49 @@ public class SessionActivity extends AppCompatActivity {
                             .collection("sessions").document(date)
                             .get()
                             .addOnSuccessListener(sessionDoc -> {
-                                Object rawExercises = sessionDoc.exists() ? sessionDoc.get("exercises") : null;
-                                boolean hasExercises = rawExercises instanceof List && !((List<?>) rawExercises).isEmpty();
-                                String sessionWorkoutId = sessionDoc.exists() ? sessionDoc.getString("workoutId") : null;
-                                boolean sameWorkout = plannedWorkoutId.equals(sessionWorkoutId);
+                                //Übungen aus Session holen falls sie existiert
+                                Object rawExercises;
+                                if (sessionDoc.exists()) {
+                                    rawExercises = sessionDoc.get("exercises");
+                                } else {
+                                    rawExercises = null;
+                                }
+
+                                //Hat die Session Übungen?
+                                boolean hasExercises;
+                                if (rawExercises instanceof List) {
+                                    if (!((List<?>) rawExercises).isEmpty()) {
+                                        hasExercises = true;
+                                    } else {
+                                        hasExercises = false;
+                                    }
+                                } else {
+                                    hasExercises = false;
+                                }
+
+                                //Workout-ID der gespeicherten Session holen
+                                String sessionWorkoutId;
+                                if (sessionDoc.exists()) {
+                                    sessionWorkoutId = sessionDoc.getString("workoutId");
+                                } else {
+                                    sessionWorkoutId = null;
+                                }
+
+                                //Prüfen ob selbes workout
+                                boolean sameWorkout;
+                                if (plannedWorkoutId.equals(sessionWorkoutId)) {
+                                    sameWorkout = true;
+                                } else {
+                                    sameWorkout = false;
+                                }
 
                                 if (sessionDoc.exists() && hasExercises && sameWorkout) {
                                     workoutId = sessionWorkoutId;
                                     workoutName = sessionDoc.getString("workoutName");
                                     sessionExercises = (List<Map<String, Object>>) rawExercises;
-                                    normalizeExercisesData();
-                                    renderExercises();
-                                } else {
+                                    normalizeExercisesData(); // eigene Methode für normalisierung der Daten
+                                    renderExercises(); // eigene Methode für rendern der Daten
+                                } else { // Absicherung
                                     workoutId = plannedWorkoutId;
                                     workoutName = plannedWorkoutName;
                                     loadWorkoutDetails(userID);
@@ -106,6 +141,7 @@ public class SessionActivity extends AppCompatActivity {
                         Toast.makeText(this, "Fehler beim Laden des geplanten Workouts: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
+    //Workout Details laden
     private void loadWorkoutDetails(String userID) {
         db.collection("users").document(userID)
                 .collection("workouts").document(workoutId)
@@ -117,6 +153,7 @@ public class SessionActivity extends AppCompatActivity {
                         return;
                     }
 
+                    // Übungsnamen aus Workout Dokument holen
                     Object rawNames = workoutDoc.get("exerciseNames");
                     List<String> exerciseNames = new ArrayList<>();
                     if (rawNames instanceof List) {
@@ -131,17 +168,21 @@ public class SessionActivity extends AppCompatActivity {
                         Toast.makeText(this, "Diesem Workout sind noch keine Übungen zugeordnet (im Workouts-Tab bearbeiten)", Toast.LENGTH_LONG).show();
                     }
 
-                    loadExerciseCatalogAndBuildSession(userID, exerciseNames);
+                    //Metriken für die Übungen laden
+                    loadExerciseCatalogAndBuildSession(userID, exerciseNames); //eigene Methode
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(this, "Fehler beim Laden des Workouts: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
+    // Übungs-Katalog laden und Session abrufen
+    // holt Metriken für jede Übung aus der Exercise Collection
     private void loadExerciseCatalogAndBuildSession(String userID, List<String> exerciseNames) {
         db.collection("users").document(userID)
                 .collection("exercises")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
+
                     Map<String, List<String>> metricsByName = new HashMap<>();
                     for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
                         String name = doc.getString("name");
@@ -159,6 +200,7 @@ public class SessionActivity extends AppCompatActivity {
                         }
                     }
 
+                    //Session-Übungen aufbauen
                     sessionExercises = new ArrayList<>();
                     for (String exerciseName : exerciseNames) {
                         String trimmedName = exerciseName.trim();
@@ -174,10 +216,12 @@ public class SessionActivity extends AppCompatActivity {
                             Toast.makeText(this, "\"" + exerciseName + "\" hat keine Metriken hinterlegt", Toast.LENGTH_LONG).show();
                         }
 
+                        // Übungs eintrag für Session erstellen
                         Map<String, Object> exerciseEntry = new HashMap<>();
                         exerciseEntry.put("name", exerciseName);
                         exerciseEntry.put("metrics", metrics);
 
+                        // Erster Leerer Satz automatisch hinzufügen
                         List<Map<String, Object>> sets = new ArrayList<>();
                         sets.add(new HashMap<>());
                         exerciseEntry.put("sets", sets);
@@ -185,13 +229,14 @@ public class SessionActivity extends AppCompatActivity {
                         sessionExercises.add(exerciseEntry);
                     }
 
-                    saveSessionToFirestore();
-                    renderExercises();
+                    saveSessionToFirestore(); // Session speichern
+                    renderExercises(); // Session rendern
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(this, "Fehler beim Laden der Übungen: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
+    // Sätze absichern für ältere Sessions die vor der Satz-Funktion gespeichert wurden
     private void normalizeExercisesData() {
         for (Map<String, Object> exercise : sessionExercises) {
             Object rawSets = exercise.get("sets");
@@ -203,6 +248,7 @@ public class SessionActivity extends AppCompatActivity {
         }
     }
 
+    // Hilfsmethode: Metriken aus einem Übungs-Map holen
     private List<String> getMetrics(Map<String, Object> exercise) {
         Object rawMetrics = exercise.get("metrics");
         List<String> metrics = new ArrayList<>();
@@ -228,7 +274,7 @@ public class SessionActivity extends AppCompatActivity {
         return sets;
     }
 
-    // GEÄNDERT: liefert nur noch die kurze Einheit (statt vorher den kompletten Label-Text mit Klammer)
+    //Einheiten für die Metrik zurückgeben
     private String getMetricUnit(String metric) {
         switch (metric) {
             case "Gewicht":
@@ -246,8 +292,12 @@ public class SessionActivity extends AppCompatActivity {
 
     // Baut die komplette Eingabemaske für alle Übungen auf
     private void renderExercises() {
-        tvTitle.setText(workoutName != null ? "Session: " + workoutName : "Session");
-        container.removeAllViews();
+        if (workoutName != null) {
+            tvTitle.setText("Session: " + workoutName);
+        } else {
+            tvTitle.setText("Session");
+        }
+        container.removeAllViews(); // UI leeren bevor neu aufgebaut wird
         inputRefs.clear();
 
         if (sessionExercises.isEmpty()) {
@@ -262,12 +312,18 @@ public class SessionActivity extends AppCompatActivity {
             String name = (String) exercise.get("name");
             List<String> metrics = getMetrics(exercise);
 
+            // Übungsname als Titel
             TextView exerciseTitle = new TextView(this);
-            exerciseTitle.setText(name != null ? name : "Übung");
+            if (name != null) {
+                exerciseTitle.setText(name);
+            } else {
+                exerciseTitle.setText("Übung");
+            }
             exerciseTitle.setTextSize(18);
             exerciseTitle.setPadding(0, 24, 0, 8);
             container.addView(exerciseTitle);
 
+            // Keine Metriken -> Hinweis anzeigen, nächste Übung
             if (metrics.isEmpty()) {
                 TextView noMetrics = new TextView(this);
                 noMetrics.setText("Keine Metriken für diese Übung festgelegt (im Übungen-Tab bearbeiten)");
@@ -276,10 +332,13 @@ public class SessionActivity extends AppCompatActivity {
                 continue;
             }
 
+            // Ist die ausgewählte Metrik "Sets"
             boolean hasSets = metrics.contains(SETS_METRIC);
+            //Metriken ohne "Sets" werden pro Satz angezeigt
             List<String> rowMetrics = new ArrayList<>(metrics);
             rowMetrics.remove(SETS_METRIC);
 
+            // Container für die Satz zeilen
             LinearLayout setsContainer = new LinearLayout(this);
             setsContainer.setOrientation(LinearLayout.VERTICAL);
             container.addView(setsContainer);
@@ -288,8 +347,9 @@ public class SessionActivity extends AppCompatActivity {
 
             final int exerciseIndex = i;
 
-            renderSetsForExercise(exerciseIndex, setsContainer, rowMetrics, hasSets);
+            renderSetsForExercise(exerciseIndex, setsContainer, rowMetrics, hasSets);//eigene Methode zum rendern der einzelnen Übungen
 
+            // nur ein plus, wenn "Sets" als Metrik eingestellt
             if (hasSets) {
                 Button btnAddSet = new Button(this);
                 btnAddSet.setText("+ Satz hinzufügen");
@@ -303,8 +363,9 @@ public class SessionActivity extends AppCompatActivity {
         }
     }
 
+    // Satz Zeilen für eine Übung aufbauen
     private void renderSetsForExercise(int exerciseIndex, LinearLayout setsContainer, List<String> rowMetrics, boolean hasSets) {
-        setsContainer.removeAllViews();
+        setsContainer.removeAllViews(); //alte Zeilen löschen
         inputRefs.get(exerciseIndex).clear();
 
         List<Map<String, Object>> sets = getSets(sessionExercises.get(exerciseIndex));
@@ -313,11 +374,13 @@ public class SessionActivity extends AppCompatActivity {
             Map<String, Object> setValues = sets.get(j);
             final int setIndex = j;
 
+            // Zeile = hotizontales LinearLayout
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(0, 8, 0, 8);
 
+            // "Satz 1" Label nur, wenn hasSets true ist
             if (hasSets) {
                 TextView setLabel = new TextView(this);
                 setLabel.setText("Satz " + (j + 1) + ": ");
@@ -332,6 +395,7 @@ public class SessionActivity extends AppCompatActivity {
                 row.addView(noOtherMetrics);
             }
 
+            // Für jede Metrik ein Eingabefeld erstellen
             for (String metric : rowMetrics) {
                 EditText input = new EditText(this);
                 // GEÄNDERT: Hint zeigt wieder nur den reinen Metriknamen (ohne Einheit in Klammern)
@@ -342,6 +406,7 @@ public class SessionActivity extends AppCompatActivity {
                 }
                 input.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
+                // vorhandene Werte eintragen (wenn Session bereits besteht)
                 Object existingValue = setValues.get(metric);
                 if (existingValue != null) {
                     input.setText(existingValue.toString());
@@ -350,7 +415,7 @@ public class SessionActivity extends AppCompatActivity {
                 fieldsForSet.put(metric, input);
                 row.addView(input);
 
-                // NEU: Einheit als kleiner Text direkt rechts neben dem Eingabefeld
+                //Einheit rechts neben dem Eingabefeld anzeigen
                 String unit = getMetricUnit(metric);
                 if (!unit.isEmpty()) {
                     TextView unitLabel = new TextView(this);
@@ -360,15 +425,17 @@ public class SessionActivity extends AppCompatActivity {
                 }
             }
 
+            //"X" Button zum Löschen eines Satzes
             if (hasSets) {
                 Button btnDeleteSet = new Button(this);
                 btnDeleteSet.setText("X");
-                btnDeleteSet.setOnClickListener(v -> {
+                btnDeleteSet.setOnClickListener(deleteClicked -> {
                     syncExerciseInputsToData(exerciseIndex);
                     List<Map<String, Object>> currentSets = getSets(sessionExercises.get(exerciseIndex));
                     if (setIndex < currentSets.size()) {
                         currentSets.remove(setIndex);
                     }
+                    // mind. 1 Satz muss vorhanden sein
                     if (currentSets.isEmpty()) {
                         currentSets.add(new HashMap<>());
                     }
@@ -381,6 +448,7 @@ public class SessionActivity extends AppCompatActivity {
             setsContainer.addView(row);
         }
     }
+
 
     private void syncExerciseInputsToData(int exerciseIndex) {
         List<Map<String, Object>> sets = getSets(sessionExercises.get(exerciseIndex));
@@ -396,6 +464,7 @@ public class SessionActivity extends AppCompatActivity {
         }
     }
 
+    // Session speichern
     private void saveSession() {
         for (int i = 0; i < sessionExercises.size(); i++) {
             if (i < inputRefs.size()) {
@@ -405,6 +474,7 @@ public class SessionActivity extends AppCompatActivity {
         saveSessionToFirestore();
     }
 
+    // Session in Firestore speichern
     private void saveSessionToFirestore() {
         String userID = mAuth.getCurrentUser().getUid();
 

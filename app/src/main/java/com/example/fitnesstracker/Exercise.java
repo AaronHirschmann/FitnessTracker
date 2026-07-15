@@ -8,7 +8,7 @@ public class Exercise {
     private String name;
     private List<String> metrics;
 
-    public Exercise() {}
+    public Exercise() {} // Ist nötig für Firebase
 
     public Exercise(String id, String name, List<String> metrics) {
         this.id = id;
